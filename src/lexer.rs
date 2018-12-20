@@ -57,16 +57,16 @@ fn new_token<L: ToString>(literal: &L, token_type: TokenType) -> Token {
 fn test_next_token() {
     let input = "=+(){},;";
 
-    let tests: Vec<(TokenType, String)> = vec![
-        (TokenType::Assign, "=".into()),
-        (TokenType::Plus, "+".into()),
-        (TokenType::LParen, "(".into()),
-        (TokenType::RParen, ")".into()),
-        (TokenType::LBrace, "{".into()),
-        (TokenType::RBrace, "}".into()),
-        (TokenType::Comma, ",".into()),
-        (TokenType::Semicolon, ";".into()),
-        (TokenType::EOF, "".into()),
+    let tests: Vec<(TokenType, &str)> = vec![
+        (TokenType::Assign, "="),
+        (TokenType::Plus, "+"),
+        (TokenType::LParen, "("),
+        (TokenType::RParen, ")"),
+        (TokenType::LBrace, "{"),
+        (TokenType::RBrace, "}"),
+        (TokenType::Comma, ","),
+        (TokenType::Semicolon, ";"),
+        (TokenType::EOF, ""),
     ];
 
     let mut lexer = Lexer::new(input);
@@ -76,6 +76,4 @@ fn test_next_token() {
         assert_eq!(token.token_type, t.0);
         assert_eq!(token.literal, t.1);
     }
-
-    assert_eq!(1, 1);
 }
