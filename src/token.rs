@@ -25,6 +25,16 @@ pub enum TokenType {
     Let,
 }
 
+impl TokenType {
+    pub fn lookup_ident(ident: &str) -> TokenType {
+        match ident {
+            "fn" => TokenType::Function,
+            "let" => TokenType::Let,
+            _ => TokenType::Ident,
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub struct Token {
     pub token_type: TokenType,
