@@ -16,7 +16,7 @@ pub enum TokenType {
     Semicolon,
 
     LParen, // (
-    RParen, // }
+    RParen, // )
     LBrace, // {
     RBrace, // }
 
