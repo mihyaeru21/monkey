@@ -24,11 +24,17 @@ impl Lexer {
 
         let token = match self.ch {
             Some(c @ '=') => new_token(c, TokenType::Assign),
+            Some(c @ '+') => new_token(c, TokenType::Plus),
+            Some(c @ '-') => new_token(c, TokenType::Minus),
+            Some(c @ '!') => new_token(c, TokenType::Bang),
+            Some(c @ '/') => new_token(c, TokenType::Slash),
+            Some(c @ '*') => new_token(c, TokenType::Asterisk),
+            Some(c @ '<') => new_token(c, TokenType::Lt),
+            Some(c @ '>') => new_token(c, TokenType::Gt),
             Some(c @ ';') => new_token(c, TokenType::Semicolon),
+            Some(c @ ',') => new_token(c, TokenType::Comma),
             Some(c @ '(') => new_token(c, TokenType::LParen),
             Some(c @ ')') => new_token(c, TokenType::RParen),
-            Some(c @ ',') => new_token(c, TokenType::Comma),
-            Some(c @ '+') => new_token(c, TokenType::Plus),
             Some(c @ '{') => new_token(c, TokenType::LBrace),
             Some(c @ '}') => new_token(c, TokenType::RBrace),
             Some(c) => {
@@ -143,6 +149,8 @@ fn test_next_token() {
         };
 
         let result = add(five, ten);
+        !-/*5;
+        5 < 10 > 5;
     "#;
 
     let tests: Vec<(TokenType, &str)> = vec![
@@ -181,6 +189,18 @@ fn test_next_token() {
         (TokenType::Comma, ","),
         (TokenType::Ident, "ten"),
         (TokenType::RParen, ")"),
+        (TokenType::Semicolon, ";"),
+        (TokenType::Bang, "!"),
+        (TokenType::Minus, "-"),
+        (TokenType::Slash, "/"),
+        (TokenType::Asterisk, "*"),
+        (TokenType::Int, "5"),
+        (TokenType::Semicolon, ";"),
+        (TokenType::Int, "5"),
+        (TokenType::Lt, "<"),
+        (TokenType::Int, "10"),
+        (TokenType::Gt, ">"),
+        (TokenType::Int, "5"),
         (TokenType::Semicolon, ";"),
         (TokenType::EOF, ""),
     ];
