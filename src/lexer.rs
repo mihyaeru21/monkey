@@ -31,7 +31,7 @@ impl Lexer {
             Some(c @ '+') => new_token(c, TokenType::Plus),
             Some(c @ '{') => new_token(c, TokenType::LBrace),
             Some(c @ '}') => new_token(c, TokenType::RBrace),
-            Some(c @ _) => {
+            Some(c) => {
                 if is_letter(c) {
                     // return しとかないと read_char() が余分に呼び出されてしまう
                     let literal = self.read_identifier();
@@ -99,7 +99,7 @@ fn is_letter(ch: char) -> bool {
 
 fn is_letter_opt(ch: Option<char>) -> bool {
     match ch {
-        Some(c @ _) => is_letter(c),
+        Some(c) => is_letter(c),
         None => false,
     }
 }
@@ -113,7 +113,7 @@ fn is_digit(ch: char) -> bool {
 
 fn is_digit_opt(ch: Option<char>) -> bool {
     match ch {
-        Some(c @ _) => is_digit(c),
+        Some(c) => is_digit(c),
         None => false,
     }
 }
@@ -127,7 +127,7 @@ fn is_whitespace(ch: char) -> bool {
 
 fn is_whitespace_opt(ch: Option<char>) -> bool {
     match ch {
-        Some(c @ _) => is_whitespace(c),
+        Some(c) => is_whitespace(c),
         None => false,
     }
 }
