@@ -18,6 +18,9 @@ pub enum TokenType {
     Lt, // <
     Gt, // >
 
+    Eq,    // ==
+    NotEq, // !=
+
     // デリミタ
     Comma,
     Semicolon,

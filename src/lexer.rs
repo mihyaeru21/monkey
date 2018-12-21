@@ -23,10 +23,22 @@ impl Lexer {
         self.skip_whitespace();
 
         let token = match self.ch {
-            Some(c @ '=') => new_token(c, TokenType::Assign),
+            Some(c @ '=') => match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    new_token("==", TokenType::Eq)
+                }
+                _ => new_token(c, TokenType::Assign),
+            },
             Some(c @ '+') => new_token(c, TokenType::Plus),
             Some(c @ '-') => new_token(c, TokenType::Minus),
-            Some(c @ '!') => new_token(c, TokenType::Bang),
+            Some(c @ '!') => match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    new_token("!=", TokenType::NotEq)
+                }
+                _ => new_token(c, TokenType::Bang),
+            },
             Some(c @ '/') => new_token(c, TokenType::Slash),
             Some(c @ '*') => new_token(c, TokenType::Asterisk),
             Some(c @ '<') => new_token(c, TokenType::Lt),
@@ -61,9 +73,13 @@ impl Lexer {
     }
 
     fn read_char(&mut self) {
-        self.ch = self.input.get(self.read_position).map(|i| *i);
+        self.ch = self.input.get(self.read_position).map(|c| *c);
         self.position = self.read_position;
         self.read_position += 1;
+    }
+
+    fn peek_char(&self) -> Option<char> {
+        self.input.get(self.read_position).map(|c| *c)
     }
 
     fn read_identifier(&mut self) -> String {
@@ -157,6 +173,9 @@ fn test_next_token() {
         } else {
             return false;
         }
+
+        10 == 10;
+        10 != 9;
     "#;
 
     let tests: Vec<(TokenType, &str)> = vec![
@@ -225,6 +244,14 @@ fn test_next_token() {
         (TokenType::False, "false"),
         (TokenType::Semicolon, ";"),
         (TokenType::RBrace, "}"),
+        (TokenType::Int, "10"),
+        (TokenType::Eq, "=="),
+        (TokenType::Int, "10"),
+        (TokenType::Semicolon, ";"),
+        (TokenType::Int, "10"),
+        (TokenType::NotEq, "!="),
+        (TokenType::Int, "9"),
+        (TokenType::Semicolon, ";"),
         (TokenType::EOF, ""),
     ];
 
