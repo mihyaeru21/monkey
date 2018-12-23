@@ -30,7 +30,7 @@ impl Parser {
     pub fn parse_program(&mut self) -> Result<Program> {
         let mut program = Program::new();
 
-        while self.current_token.token_type != TokenType::EOF {
+        while !self.current_token_is(TokenType::EOF) {
             match self.parse_statement() {
                 Ok(s) => program.statements.push(s),
                 _ => {}
