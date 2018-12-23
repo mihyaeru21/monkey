@@ -16,6 +16,7 @@ pub struct Parser {
     lexer: Lexer,
     current_token: Token,
     peek_token: Token,
+    errors: Vec<String>,
 }
 
 impl Parser {
@@ -24,6 +25,7 @@ impl Parser {
             current_token: lexer.next_token(),
             peek_token: lexer.next_token(),
             lexer,
+            errors: Vec::new(),
         }
     }
 
@@ -39,6 +41,10 @@ impl Parser {
         }
 
         Ok(program)
+    }
+
+    pub fn get_errors(&self) -> &Vec<String> {
+        &self.errors
     }
 
     fn next_token(&mut self) {
@@ -87,17 +93,25 @@ impl Parser {
         self.current_token.token_type == t
     }
 
-    fn peed_token_is(&self, t: TokenType) -> bool {
+    fn peek_token_is(&self, t: TokenType) -> bool {
         self.peek_token.token_type == t
     }
 
     fn expect_peek(&mut self, t: TokenType) -> bool {
-        if self.peed_token_is(t) {
+        if self.peek_token_is(t) {
             self.next_token();
             true
         } else {
+            self.peek_error(t);
             false
         }
+    }
+
+    fn peek_error(&mut self, t: TokenType) {
+        self.errors.push(format!(
+            "expected next token to be {:?}, got {:?} instead",
+            t, self.peek_token.token_type
+        ));
     }
 }
 
@@ -120,6 +134,7 @@ mod tests {
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program().unwrap();
+        check_parse_errors(&parser);
         assert_eq!(program.statements.len(), 3);
 
         let tests: Vec<(&str)> = vec![("x"), ("y"), ("foobar")];
@@ -136,5 +151,19 @@ mod tests {
                 s => panic!("Invalid statement: {:?}", s),
             }
         }
+    }
+
+    fn check_parse_errors(parser: &Parser) {
+        let errors = parser.get_errors();
+        if errors.len() == 0 {
+            return;
+        }
+
+        eprintln!("parser has {} errors", errors.len());
+        for error in errors {
+            eprintln!("{}", error)
+        }
+
+        panic!();
     }
 }
