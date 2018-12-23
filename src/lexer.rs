@@ -1,5 +1,6 @@
 use crate::token::{Token, TokenType};
 
+#[derive(Debug)]
 pub struct Lexer {
     input: Vec<char>,
     position: usize,
