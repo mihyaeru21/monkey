@@ -1,4 +1,6 @@
-use crate::ast::{Expression, IdentifierExpression, LetStatement, Program, Statement};
+use crate::ast::{
+    Expression, IdentifierExpression, LetStatement, Program, ReturnStatement, Statement,
+};
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
 use std::mem::swap;
@@ -55,6 +57,7 @@ impl Parser {
     fn parse_statement(&mut self) -> Result<Statement> {
         match self.current_token.token_type {
             TokenType::Let => Ok(Statement::Let(self.parse_let_statement()?)),
+            TokenType::Return => Ok(Statement::Return(self.parse_return_statement()?)),
             _ => Err(ParseError::Err("dame".into())),
         }
     }
@@ -86,6 +89,21 @@ impl Parser {
             token,
             name,
             value: Expression::Identifier(cloned_name), // TODO
+        })
+    }
+
+    fn parse_return_statement(&mut self) -> Result<ReturnStatement> {
+        let token = self.current_token.clone();
+
+        self.next_token();
+
+        let cloned_token = token.clone();
+        Ok(ReturnStatement {
+            token,
+            return_value: Expression::Identifier(IdentifierExpression {
+                token: cloned_token,
+                value: String::new(),
+            }),
         })
     }
 
@@ -135,6 +153,7 @@ mod tests {
 
         let program = parser.parse_program().unwrap();
         check_parse_errors(&parser);
+
         assert_eq!(program.statements.len(), 3);
 
         let tests: Vec<(&str)> = vec![("x"), ("y"), ("foobar")];
@@ -147,6 +166,32 @@ mod tests {
                 Statement::Let(l) => {
                     assert_eq!(l.name.value, *t);
                     assert_eq!(l.name.token.literal, *t)
+                }
+                s => panic!("Invalid statement: {:?}", s),
+            }
+        }
+    }
+
+    #[test]
+    fn test_return_statement() {
+        let input = r#"
+            return 5;
+            return 10;
+            return 993322;
+        "#;
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program().unwrap();
+        check_parse_errors(&parser);
+
+        assert_eq!(program.statements.len(), 3);
+
+        for stmt in program.statements {
+            match stmt {
+                Statement::Return(r) => {
+                    assert_eq!(r.token.literal, "return");
                 }
                 s => panic!("Invalid statement: {:?}", s),
             }

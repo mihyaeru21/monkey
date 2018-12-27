@@ -8,12 +8,14 @@ pub trait Node: Debug {
 #[derive(Debug)]
 pub enum Statement {
     Let(LetStatement),
+    Return(ReturnStatement),
 }
 
 impl Node for Statement {
     fn token_literal(&self) -> String {
         match self {
             Statement::Let(l) => l.token.literal.to_owned(),
+            Statement::Return(r) => r.token.literal.to_owned(),
         }
     }
 }
@@ -64,4 +66,10 @@ pub struct LetStatement {
     pub token: Token,
     pub name: IdentifierExpression,
     pub value: Expression,
+}
+
+#[derive(Debug)]
+pub struct ReturnStatement {
+    pub token: Token,
+    pub return_value: Expression,
 }
