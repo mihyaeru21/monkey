@@ -1,6 +1,4 @@
-use crate::ast::{
-    Expression, IdentifierExpression, LetStatement, Program, ReturnStatement, Statement,
-};
+use crate::ast::{Identifier, LetStatement, Program, ReturnStatement, Statement};
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
 use std::mem::swap;
@@ -54,10 +52,10 @@ impl Parser {
         self.peek_token = self.lexer.next_token();
     }
 
-    fn parse_statement(&mut self) -> Result<Statement> {
+    fn parse_statement(&mut self) -> Result<Box<dyn Statement>> {
         match self.current_token.token_type {
-            TokenType::Let => Ok(Statement::Let(self.parse_let_statement()?)),
-            TokenType::Return => Ok(Statement::Return(self.parse_return_statement()?)),
+            TokenType::Let => Ok(Box::new(self.parse_let_statement()?)),
+            TokenType::Return => Ok(Box::new(self.parse_return_statement()?)),
             _ => Err(ParseError::Err("dame".into())),
         }
     }
@@ -70,7 +68,7 @@ impl Parser {
         }
 
         let t = self.current_token.clone();
-        let name = IdentifierExpression {
+        let name = Identifier {
             value: t.literal.clone(),
             token: t,
         };
@@ -88,7 +86,7 @@ impl Parser {
         Ok(LetStatement {
             token,
             name,
-            value: Expression::Identifier(cloned_name), // TODO
+            value: Box::new(cloned_name), // TODO
         })
     }
 
@@ -100,7 +98,7 @@ impl Parser {
         let cloned_token = token.clone();
         Ok(ReturnStatement {
             token,
-            return_value: Expression::Identifier(IdentifierExpression {
+            return_value: Box::new(Identifier {
                 token: cloned_token,
                 value: String::new(),
             }),
@@ -135,10 +133,9 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::ast::Node;
-    use crate::ast::Statement;
     use crate::lexer::Lexer;
-    use crate::parser::Parser;
 
     #[test]
     fn test_let_statements() {
@@ -159,16 +156,13 @@ mod tests {
         let tests: Vec<(&str)> = vec![("x"), ("y"), ("foobar")];
 
         for (i, t) in tests.iter().enumerate() {
-            let stmt = &program.statements[i];
-            assert_eq!(stmt.token_literal(), "let");
+            let statement = &program.statements[i];
+            assert_eq!(statement.token_literal(), "let");
 
-            match stmt {
-                Statement::Let(l) => {
-                    assert_eq!(l.name.value, *t);
-                    assert_eq!(l.name.token.literal, *t)
-                }
-                s => panic!("Invalid statement: {:?}", s),
-            }
+            let let_statement = statement.as_let_ref().unwrap();
+            assert_eq!(let_statement.token_literal(), "let");
+            assert_eq!(let_statement.name.value, *t);
+            assert_eq!(let_statement.name.token.literal, *t)
         }
     }
 
@@ -188,13 +182,9 @@ mod tests {
 
         assert_eq!(program.statements.len(), 3);
 
-        for stmt in program.statements {
-            match stmt {
-                Statement::Return(r) => {
-                    assert_eq!(r.token.literal, "return");
-                }
-                s => panic!("Invalid statement: {:?}", s),
-            }
+        for statement in &program.statements {
+            let return_statement = statement.as_return_ref().unwrap();
+            assert_eq!(return_statement.token_literal(), "return");
         }
     }
 
