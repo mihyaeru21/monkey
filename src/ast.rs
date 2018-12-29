@@ -2,7 +2,7 @@ use crate::token::Token;
 use std::fmt::{self, Debug, Display, Formatter};
 
 pub trait Node: Debug + Display {
-    fn token_literal(&self) -> String; // TODO: &strでいけそうなら後で変える
+    fn token_literal(&self) -> &str;
 }
 
 pub trait Statement: Node {
@@ -31,7 +31,7 @@ impl Program {
 }
 
 impl Node for Program {
-    fn token_literal(&self) -> String {
+    fn token_literal(&self) -> &str {
         match self.statements.first() {
             Some(s) => s.token_literal(),
             None => "".into(),
@@ -56,8 +56,8 @@ pub struct LetStatement {
 }
 
 impl Node for LetStatement {
-    fn token_literal(&self) -> String {
-        self.token.literal.to_owned()
+    fn token_literal(&self) -> &str {
+        &self.token.literal
     }
 }
 
@@ -84,8 +84,8 @@ pub struct ReturnStatement {
 }
 
 impl Node for ReturnStatement {
-    fn token_literal(&self) -> String {
-        self.token.literal.to_owned()
+    fn token_literal(&self) -> &str {
+        &self.token.literal
     }
 }
 
@@ -108,8 +108,8 @@ pub struct ExpressionStatement {
 }
 
 impl Node for ExpressionStatement {
-    fn token_literal(&self) -> String {
-        self.token.literal.to_owned()
+    fn token_literal(&self) -> &str {
+        &self.token.literal
     }
 }
 
@@ -128,8 +128,8 @@ pub struct Identifier {
 }
 
 impl Node for Identifier {
-    fn token_literal(&self) -> String {
-        self.token.literal.to_owned()
+    fn token_literal(&self) -> &str {
+        &self.token.literal
     }
 }
 
