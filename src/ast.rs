@@ -5,6 +5,8 @@ pub trait Node: Debug + Display {
     fn token_literal(&self) -> &str;
 }
 
+// Statement と Expression を enum にしら良い気がする
+
 pub trait Statement: Node {
     fn as_let_ref(&self) -> Option<&LetStatement> {
         None
@@ -25,6 +27,10 @@ pub trait Expression: Node {
     }
 
     fn as_integer_literal_ref(&self) -> Option<&IntegerLiteral> {
+        None
+    }
+
+    fn as_prefix_ref(&self) -> Option<&PrefixExpression> {
         None
     }
 }
@@ -182,6 +188,31 @@ impl Expression for IntegerLiteral {
 impl Display for IntegerLiteral {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(&self.value, f)
+    }
+}
+
+#[derive(Debug)]
+pub struct PrefixExpression {
+    pub token: Token,
+    pub operator: String,
+    pub right: Box<dyn Expression>,
+}
+
+impl Node for PrefixExpression {
+    fn token_literal(&self) -> &str {
+        &self.token.literal
+    }
+}
+
+impl Expression for PrefixExpression {
+    fn as_prefix_ref(&self) -> Option<&PrefixExpression> {
+        Some(self)
+    }
+}
+
+impl Display for PrefixExpression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "({}{})", self.operator, self.right)
     }
 }
 

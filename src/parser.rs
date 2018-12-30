@@ -1,3 +1,4 @@
+use crate::ast::PrefixExpression;
 use crate::ast::{
     Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Program,
     ReturnStatement, Statement,
@@ -134,7 +135,11 @@ impl Parser {
         let left_expression: Box<dyn Expression> = match self.current_token.token_type {
             TokenType::Ident => Box::new(self.parse_identifier()),
             TokenType::Int => Box::new(self.parse_integer_literal()?),
-            _ => {
+            TokenType::Bang => Box::new(self.parse_prefix_expression()?),
+            TokenType::Minus => Box::new(self.parse_prefix_expression()?),
+            t => {
+                let msg = format!("no prefix parse function for {:?} found", t);
+                self.errors.push(msg);
                 return Err(ParseError::Err(
                     "エラーにはしなくていいかも".into(),
                 ));
@@ -162,6 +167,21 @@ impl Parser {
         };
 
         Ok(IntegerLiteral { token, value })
+    }
+
+    fn parse_prefix_expression(&mut self) -> Result<PrefixExpression> {
+        let token = self.current_token.clone();
+
+        self.next_token();
+
+        let operator = token.literal.clone();
+        let right = self.parse_expression(Precedence::Prefix)?;
+
+        Ok(PrefixExpression {
+            token,
+            operator,
+            right,
+        })
     }
 
     fn current_token_is(&self, t: TokenType) -> bool {
@@ -245,20 +265,6 @@ mod tests {
         }
     }
 
-    fn check_parse_errors(parser: &Parser) {
-        let errors = parser.get_errors();
-        if errors.len() == 0 {
-            return;
-        }
-
-        eprintln!("parser has {} errors", errors.len());
-        for error in errors {
-            eprintln!("{}", error)
-        }
-
-        panic!();
-    }
-
     #[test]
     fn test_identifier_expression() {
         let input = "foobar;";
@@ -288,8 +294,43 @@ mod tests {
         assert_eq!(program.statements.len(), 1);
 
         let statement = program.statements[0].as_expression_ref().unwrap();
-        let int_literal = statement.expression.as_integer_literal_ref().unwrap();
-        assert_eq!(int_literal.value, 5);
-        assert_eq!(int_literal.token_literal(), "5");
+        test_integer_literal(&statement.expression, 5);
+    }
+
+    #[test]
+    fn test_prefix_expression() {
+        let tests: Vec<(&str, &str, i64)> = vec![("!5;", "!", 5), ("-15;", "-", 15)];
+        for t in tests {
+            let mut parser = Parser::new(Lexer::new(t.0));
+            let program = parser.parse_program().unwrap();
+            check_parse_errors(&parser);
+
+            assert_eq!(program.statements.len(), 1);
+
+            let statement = program.statements[0].as_expression_ref().unwrap();
+            let prefix_exp = statement.expression.as_prefix_ref().unwrap();
+            assert_eq!(prefix_exp.operator, t.1);
+            test_integer_literal(&prefix_exp.right, t.2);
+        }
+    }
+
+    fn test_integer_literal(expression: &Box<Expression>, expected: i64) {
+        let integer = expression.as_integer_literal_ref().unwrap();
+        assert_eq!(integer.value, expected);
+        assert_eq!(integer.token_literal(), format!("{}", expected));
+    }
+
+    fn check_parse_errors(parser: &Parser) {
+        let errors = parser.get_errors();
+        if errors.len() == 0 {
+            return;
+        }
+
+        eprintln!("parser has {} errors", errors.len());
+        for error in errors {
+            eprintln!("{}", error)
+        }
+
+        panic!();
     }
 }
