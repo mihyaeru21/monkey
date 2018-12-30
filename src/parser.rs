@@ -1,5 +1,6 @@
 use crate::ast::{
-    Expression, ExpressionStatement, Identifier, LetStatement, Program, ReturnStatement, Statement,
+    Expression, ExpressionStatement, Identifier, IntegerLiteral, LetStatement, Program,
+    ReturnStatement, Statement,
 };
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
@@ -126,15 +127,13 @@ impl Parser {
             self.next_token();
         }
 
-        Ok(ExpressionStatement {
-            token,
-            expression: Box::new(expression),
-        })
+        Ok(ExpressionStatement { token, expression })
     }
 
-    fn parse_expression(&mut self, precedence: Precedence) -> Result<impl Expression> {
-        let left_expression = match self.current_token.token_type {
-            TokenType::Ident => self.parse_identifier(),
+    fn parse_expression(&mut self, precedence: Precedence) -> Result<Box<dyn Expression>> {
+        let left_expression: Box<dyn Expression> = match self.current_token.token_type {
+            TokenType::Ident => Box::new(self.parse_identifier()),
+            TokenType::Int => Box::new(self.parse_integer_literal()?),
             _ => {
                 return Err(ParseError::Err(
                     "エラーにはしなくていいかも".into(),
@@ -149,6 +148,20 @@ impl Parser {
         let token = self.current_token.clone();
         let value = token.literal.clone();
         Identifier { token, value }
+    }
+
+    fn parse_integer_literal(&mut self) -> Result<IntegerLiteral> {
+        let token = self.current_token.clone();
+        let value: i64 = match token.literal.parse() {
+            Ok(i) => i,
+            Err(_) => {
+                let message = format!("could not parse {} as integer", token.literal);
+                self.errors.push(message.clone());
+                return Err(ParseError::Err(message));
+            }
+        };
+
+        Ok(IntegerLiteral { token, value })
     }
 
     fn current_token_is(&self, t: TokenType) -> bool {
@@ -261,5 +274,22 @@ mod tests {
         let identifier = statement.expression.as_identifier_ref().unwrap();
         assert_eq!(identifier.value, "foobar");
         assert_eq!(identifier.token_literal(), "foobar");
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = "5;";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program().unwrap();
+        check_parse_errors(&parser);
+
+        assert_eq!(program.statements.len(), 1);
+
+        let statement = program.statements[0].as_expression_ref().unwrap();
+        let int_literal = statement.expression.as_integer_literal_ref().unwrap();
+        assert_eq!(int_literal.value, 5);
+        assert_eq!(int_literal.token_literal(), "5");
     }
 }

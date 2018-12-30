@@ -23,6 +23,10 @@ pub trait Expression: Node {
     fn as_identifier_ref(&self) -> Option<&Identifier> {
         None
     }
+
+    fn as_integer_literal_ref(&self) -> Option<&IntegerLiteral> {
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -152,6 +156,30 @@ impl Expression for Identifier {
 }
 
 impl Display for Identifier {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(&self.value, f)
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct IntegerLiteral {
+    pub token: Token,
+    pub value: i64,
+}
+
+impl Node for IntegerLiteral {
+    fn token_literal(&self) -> &str {
+        &self.token.literal
+    }
+}
+
+impl Expression for IntegerLiteral {
+    fn as_integer_literal_ref(&self) -> Option<&IntegerLiteral> {
+        Some(self)
+    }
+}
+
+impl Display for IntegerLiteral {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(&self.value, f)
     }
