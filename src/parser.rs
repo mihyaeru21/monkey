@@ -110,6 +110,11 @@ impl Parser {
 
         self.next_token();
 
+        // TODO: 式を実装したら実装する
+        while !self.current_token_is(TokenType::Semicolon) {
+            self.next_token();
+        }
+
         let cloned_token = token.clone();
         Ok(ReturnStatement {
             token,
