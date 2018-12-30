@@ -13,9 +13,17 @@ pub trait Statement: Node {
     fn as_return_ref(&self) -> Option<&ReturnStatement> {
         None
     }
+
+    fn as_expression_ref(&self) -> Option<&ExpressionStatement> {
+        None
+    }
 }
 
-pub trait Expression: Node {}
+pub trait Expression: Node {
+    fn as_identifier_ref(&self) -> Option<&Identifier> {
+        None
+    }
+}
 
 #[derive(Debug)]
 pub struct Program {
@@ -113,7 +121,11 @@ impl Node for ExpressionStatement {
     }
 }
 
-impl Statement for ExpressionStatement {}
+impl Statement for ExpressionStatement {
+    fn as_expression_ref(&self) -> Option<&ExpressionStatement> {
+        Some(self)
+    }
+}
 
 impl Display for ExpressionStatement {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -133,7 +145,11 @@ impl Node for Identifier {
     }
 }
 
-impl Expression for Identifier {}
+impl Expression for Identifier {
+    fn as_identifier_ref(&self) -> Option<&Identifier> {
+        Some(self)
+    }
+}
 
 impl Display for Identifier {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {

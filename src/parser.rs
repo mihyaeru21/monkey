@@ -1,4 +1,6 @@
-use crate::ast::{Identifier, LetStatement, Program, ReturnStatement, Statement};
+use crate::ast::{
+    Expression, ExpressionStatement, Identifier, LetStatement, Program, ReturnStatement, Statement,
+};
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
 use std::mem::swap;
@@ -10,6 +12,17 @@ pub enum ParseError {
 }
 
 pub type Result<T> = result::Result<T, ParseError>;
+
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
+enum Precedence {
+    Lowest,
+    Equals,      // ==
+    LessGreater, // > <
+    Sum,         // +
+    Product,     // (
+    Prefix,      // -x !x
+    Call,        // add(x)
+}
 
 #[derive(Debug)]
 pub struct Parser {
@@ -56,7 +69,7 @@ impl Parser {
         match self.current_token.token_type {
             TokenType::Let => Ok(Box::new(self.parse_let_statement()?)),
             TokenType::Return => Ok(Box::new(self.parse_return_statement()?)),
-            _ => Err(ParseError::Err("dame".into())),
+            _ => Ok(Box::new(self.parse_expression_statement()?)),
         }
     }
 
@@ -105,6 +118,39 @@ impl Parser {
         })
     }
 
+    fn parse_expression_statement(&mut self) -> Result<ExpressionStatement> {
+        let token = self.current_token.clone();
+        let expression = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token_is(TokenType::Semicolon) {
+            self.next_token();
+        }
+
+        Ok(ExpressionStatement {
+            token,
+            expression: Box::new(expression),
+        })
+    }
+
+    fn parse_expression(&mut self, precedence: Precedence) -> Result<impl Expression> {
+        let left_expression = match self.current_token.token_type {
+            TokenType::Ident => self.parse_identifier(),
+            _ => {
+                return Err(ParseError::Err(
+                    "エラーにはしなくていいかも".into(),
+                ));
+            }
+        };
+
+        Ok(left_expression)
+    }
+
+    fn parse_identifier(&self) -> Identifier {
+        let token = self.current_token.clone();
+        let value = token.literal.clone();
+        Identifier { token, value }
+    }
+
     fn current_token_is(&self, t: TokenType) -> bool {
         self.current_token.token_type == t
     }
@@ -147,7 +193,6 @@ mod tests {
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
-
         let program = parser.parse_program().unwrap();
         check_parse_errors(&parser);
 
@@ -176,7 +221,6 @@ mod tests {
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
-
         let program = parser.parse_program().unwrap();
         check_parse_errors(&parser);
 
@@ -200,5 +244,22 @@ mod tests {
         }
 
         panic!();
+    }
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = "foobar;";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program().unwrap();
+        check_parse_errors(&parser);
+
+        assert_eq!(program.statements.len(), 1);
+
+        let statement = program.statements[0].as_expression_ref().unwrap();
+        let identifier = statement.expression.as_identifier_ref().unwrap();
+        assert_eq!(identifier.value, "foobar");
+        assert_eq!(identifier.token_literal(), "foobar");
     }
 }
