@@ -401,6 +401,34 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_operator_precedence_parsing() {
+        let tests: Vec<(&str, &str)> = vec![
+            ("-a * b", "((-a) * b)"),
+            ("!-a", "(!(-a))"),
+            ("a + b + c", "((a + b) + c)"),
+            ("a + b - c", "((a + b) - c)"),
+            ("a * b * c", "((a * b) * c)"),
+            ("a * b / c", "((a * b) / c)"),
+            ("a + b / c", "(a + (b / c))"),
+            ("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"),
+            ("3 + 4; -5 * 5", "(3 + 4)((-5) * 5)"),
+            ("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"),
+            ("5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))"),
+            (
+                "3 + 4 * 5 == 3 * 1 + 4 * 5",
+                "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+            ),
+        ];
+
+        for t in tests {
+            let mut parser = Parser::new(Lexer::new(t.0));
+            let program = parser.parse_program().unwrap();
+            check_parse_errors(&parser);
+            assert_eq!(format!("{}", program), t.1);
+        }
+    }
+
     fn test_integer_literal(expression: &Box<Expression>, expected: i64) {
         let integer = expression.as_integer_literal_ref().unwrap();
         assert_eq!(integer.value, expected);
