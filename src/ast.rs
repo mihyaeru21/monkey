@@ -33,6 +33,10 @@ pub trait Expression: Node {
     fn as_prefix_ref(&self) -> Option<&PrefixExpression> {
         None
     }
+
+    fn as_infix_ref(&self) -> Option<&InfixExpression> {
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -213,6 +217,32 @@ impl Expression for PrefixExpression {
 impl Display for PrefixExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "({}{})", self.operator, self.right)
+    }
+}
+
+#[derive(Debug)]
+pub struct InfixExpression {
+    pub token: Token,
+    pub left: Box<dyn Expression>,
+    pub operator: String,
+    pub right: Box<dyn Expression>,
+}
+
+impl Node for InfixExpression {
+    fn token_literal(&self) -> &str {
+        &self.token.literal
+    }
+}
+
+impl Expression for InfixExpression {
+    fn as_infix_ref(&self) -> Option<&InfixExpression> {
+        Some(self)
+    }
+}
+
+impl Display for InfixExpression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "({} {} {})", self.left, self.operator, self.right)
     }
 }
 
