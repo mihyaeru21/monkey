@@ -37,6 +37,10 @@ pub trait Expression: Node {
     fn as_infix_ref(&self) -> Option<&InfixExpression> {
         None
     }
+
+    fn as_boolean_ref(&self) -> Option<&Boolean> {
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -243,6 +247,30 @@ impl Expression for InfixExpression {
 impl Display for InfixExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "({} {} {})", self.left, self.operator, self.right)
+    }
+}
+
+#[derive(Debug)]
+pub struct Boolean {
+    pub token: Token,
+    pub value: bool,
+}
+
+impl Node for Boolean {
+    fn token_literal(&self) -> &str {
+        &self.token.literal
+    }
+}
+
+impl Expression for Boolean {
+    fn as_boolean_ref(&self) -> Option<&Boolean> {
+        Some(self)
+    }
+}
+
+impl Display for Boolean {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(&self.value, f)
     }
 }
 

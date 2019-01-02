@@ -1,6 +1,6 @@
 use crate::ast::{
-    Expression, ExpressionStatement, Identifier, InfixExpression, IntegerLiteral, LetStatement,
-    PrefixExpression, Program, ReturnStatement, Statement,
+    Boolean, Expression, ExpressionStatement, Identifier, InfixExpression, IntegerLiteral,
+    LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
 };
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
@@ -154,6 +154,7 @@ impl Parser {
             TokenType::Ident => Box::new(self.parse_identifier()),
             TokenType::Int => Box::new(self.parse_integer_literal()?),
             TokenType::Bang | TokenType::Minus => Box::new(self.parse_prefix_expression()?),
+            TokenType::True | TokenType::False => Box::new(self.parse_boolean()?),
             t => {
                 let msg = format!("no prefix parse function for {:?} found", t);
                 self.errors.push(msg);
@@ -232,6 +233,13 @@ impl Parser {
             left,
             operator,
             right,
+        })
+    }
+
+    fn parse_boolean(&mut self) -> Result<Boolean> {
+        Ok(Boolean {
+            token: self.current_token.clone(),
+            value: self.current_token_is(TokenType::True),
         })
     }
 
@@ -422,6 +430,23 @@ mod tests {
             let program = parser.parse_program().unwrap();
             check_parse_errors(&parser);
             assert_eq!(format!("{}", program), t.1);
+        }
+    }
+
+    #[test]
+    fn test_boolean_expression() {
+        let tests: Vec<(&str, bool)> = vec![("true;", true), ("false;", false)];
+
+        for t in tests {
+            let mut parser = Parser::new(Lexer::new(t.0));
+            let program = parser.parse_program().unwrap();
+            check_parse_errors(&parser);
+
+            assert_eq!(program.statements.len(), 1);
+
+            let statement = program.statements[0].as_expression_ref().unwrap();
+            let bool_exp = statement.expression.as_boolean_ref().unwrap();
+            assert_eq!(bool_exp.value, t.1);
         }
     }
 
