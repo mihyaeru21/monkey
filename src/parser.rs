@@ -274,6 +274,7 @@ mod tests {
     use super::*;
     use crate::ast::Node;
     use crate::lexer::Lexer;
+    use std::any::Any;
 
     #[test]
     fn test_let_statements() {
@@ -336,9 +337,7 @@ mod tests {
         assert_eq!(program.statements.len(), 1);
 
         let statement = program.statements[0].as_expression_ref().unwrap();
-        let identifier = statement.expression.as_identifier_ref().unwrap();
-        assert_eq!(identifier.value, "foobar");
-        assert_eq!(identifier.token_literal(), "foobar");
+        test_identifier(&statement.expression, "foobar");
     }
 
     #[test]
@@ -353,7 +352,7 @@ mod tests {
         assert_eq!(program.statements.len(), 1);
 
         let statement = program.statements[0].as_expression_ref().unwrap();
-        test_integer_literal(&statement.expression, 5);
+        test_integer_literal(&statement.expression, &5);
     }
 
     #[test]
@@ -369,7 +368,7 @@ mod tests {
             let statement = program.statements[0].as_expression_ref().unwrap();
             let prefix_exp = statement.expression.as_prefix_ref().unwrap();
             assert_eq!(prefix_exp.operator, t.1);
-            test_integer_literal(&prefix_exp.right, t.2);
+            test_integer_literal(&prefix_exp.right, &t.2);
         }
     }
 
@@ -394,10 +393,7 @@ mod tests {
             assert_eq!(program.statements.len(), 1);
 
             let statement = program.statements[0].as_expression_ref().unwrap();
-            let infix_exp = statement.expression.as_infix_ref().unwrap();
-            test_integer_literal(&infix_exp.left, t.1);
-            assert_eq!(infix_exp.operator, t.2);
-            test_integer_literal(&infix_exp.right, t.3);
+            test_infix_expression(&statement.expression, &t.1, t.2, &t.3);
         }
     }
 
@@ -429,10 +425,38 @@ mod tests {
         }
     }
 
-    fn test_integer_literal(expression: &Box<Expression>, expected: i64) {
+    fn test_identifier(expression: &Box<Expression>, expected: &str) {
+        let ident = expression.as_identifier_ref().unwrap();
+        assert_eq!(ident.value, expected);
+        assert_eq!(ident.token_literal(), expected);
+    }
+
+    fn test_integer_literal(expression: &Box<Expression>, expected: &i64) {
         let integer = expression.as_integer_literal_ref().unwrap();
-        assert_eq!(integer.value, expected);
+        assert_eq!(integer.value, *expected);
         assert_eq!(integer.token_literal(), format!("{}", expected));
+    }
+
+    fn test_literal_expression(expression: &Box<Expression>, expected: &dyn Any) {
+        if let Some(expected) = expected.downcast_ref::<i64>() {
+            test_integer_literal(expression, expected);
+        } else if let Some(expected) = expected.downcast_ref::<String>() {
+            test_identifier(expression, expected);
+        } else {
+            panic!("invalid type: {:?}", expected);
+        }
+    }
+
+    fn test_infix_expression(
+        expression: &Box<Expression>,
+        left: &Any,
+        operator: &str,
+        right: &Any,
+    ) {
+        let oe = expression.as_infix_ref().unwrap();
+        test_literal_expression(&oe.left, left);
+        assert_eq!(oe.operator, operator);
+        test_literal_expression(&oe.right, right);
     }
 
     fn check_parse_errors(parser: &Parser) {
