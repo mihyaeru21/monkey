@@ -38,7 +38,7 @@ pub trait Expression: Node {
         None
     }
 
-    fn as_boolean_ref(&self) -> Option<&Boolean> {
+    fn as_boolean_literal_ref(&self) -> Option<&Boolean> {
         None
     }
 }
@@ -263,7 +263,7 @@ impl Node for Boolean {
 }
 
 impl Expression for Boolean {
-    fn as_boolean_ref(&self) -> Option<&Boolean> {
+    fn as_boolean_literal_ref(&self) -> Option<&Boolean> {
         Some(self)
     }
 }

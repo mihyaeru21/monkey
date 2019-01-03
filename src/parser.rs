@@ -365,24 +365,43 @@ mod tests {
 
     #[test]
     fn test_prefix_expressions() {
-        let tests: Vec<(&str, &str, i64)> = vec![("!5;", "!", 5), ("-15;", "-", 15)];
-        for t in tests {
-            let mut parser = Parser::new(Lexer::new(t.0));
+        fn test(input: &str, op: &str, right: &Any) {
+            let mut parser = Parser::new(Lexer::new(input));
             let program = parser.parse_program().unwrap();
             check_parse_errors(&parser);
 
             assert_eq!(program.statements.len(), 1);
 
             let statement = program.statements[0].as_expression_ref().unwrap();
-            let prefix_exp = statement.expression.as_prefix_ref().unwrap();
-            assert_eq!(prefix_exp.operator, t.1);
-            test_integer_literal(&prefix_exp.right, &t.2);
+            test_prefix_expression(&statement.expression, op, right);
+        }
+
+        let i64_tests: Vec<(&str, &str, i64)> = vec![("!5;", "!", 5), ("-15;", "-", 15)];
+        for t in i64_tests {
+            test(t.0, t.1, &t.2);
+        }
+
+        let bool_tests: Vec<(&str, &str, bool)> =
+            vec![("!true;", "!", true), ("!false;", "!", false)];
+        for t in bool_tests {
+            test(t.0, t.1, &t.2);
         }
     }
 
     #[test]
     fn test_infix_expressions() {
-        let tests: Vec<(&str, i64, &str, i64)> = vec![
+        fn test(input: &str, left: &Any, op: &str, right: &Any) {
+            let mut parser = Parser::new(Lexer::new(input));
+            let program = parser.parse_program().unwrap();
+            check_parse_errors(&parser);
+
+            assert_eq!(program.statements.len(), 1);
+
+            let statement = program.statements[0].as_expression_ref().unwrap();
+            test_infix_expression(&statement.expression, left, op, right);
+        }
+
+        let i64_tests: Vec<(&str, i64, &str, i64)> = vec![
             ("5 + 6;", 5, "+", 6),
             ("5 - 6;", 5, "-", 6),
             ("5 * 6;", 5, "*", 6),
@@ -392,16 +411,17 @@ mod tests {
             ("5 == 6;", 5, "==", 6),
             ("5 != 6;", 5, "!=", 6),
         ];
+        for t in i64_tests {
+            test(t.0, &t.1, t.2, &t.3);
+        }
 
-        for t in tests {
-            let mut parser = Parser::new(Lexer::new(t.0));
-            let program = parser.parse_program().unwrap();
-            check_parse_errors(&parser);
-
-            assert_eq!(program.statements.len(), 1);
-
-            let statement = program.statements[0].as_expression_ref().unwrap();
-            test_infix_expression(&statement.expression, &t.1, t.2, &t.3);
+        let bool_tests: Vec<(&str, bool, &str, bool)> = vec![
+            ("true == true", true, "==", true),
+            ("true != false", true, "!=", false),
+            ("false == false", false, "==", false),
+        ];
+        for t in bool_tests {
+            test(t.0, &t.1, t.2, &t.3);
         }
     }
 
@@ -423,6 +443,10 @@ mod tests {
                 "3 + 4 * 5 == 3 * 1 + 4 * 5",
                 "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
             ),
+            ("true", "true"),
+            ("false", "false"),
+            ("3 > 5 == false", "((3 > 5) == false)"),
+            ("3 < 5 == true", "((3 < 5) == true)"),
         ];
 
         for t in tests {
@@ -445,8 +469,7 @@ mod tests {
             assert_eq!(program.statements.len(), 1);
 
             let statement = program.statements[0].as_expression_ref().unwrap();
-            let bool_exp = statement.expression.as_boolean_ref().unwrap();
-            assert_eq!(bool_exp.value, t.1);
+            test_boolean_literal(&statement.expression, &t.1);
         }
     }
 
@@ -462,14 +485,28 @@ mod tests {
         assert_eq!(integer.token_literal(), format!("{}", expected));
     }
 
+    fn test_boolean_literal(expression: &Box<Expression>, expected: &bool) {
+        let boolean = expression.as_boolean_literal_ref().unwrap();
+        assert_eq!(boolean.value, *expected);
+        assert_eq!(boolean.token_literal(), format!("{}", expected));
+    }
+
     fn test_literal_expression(expression: &Box<Expression>, expected: &dyn Any) {
         if let Some(expected) = expected.downcast_ref::<i64>() {
             test_integer_literal(expression, expected);
-        } else if let Some(expected) = expected.downcast_ref::<String>() {
+        } else if let Some(expected) = expected.downcast_ref::<&str>() {
             test_identifier(expression, expected);
+        } else if let Some(expected) = expected.downcast_ref::<bool>() {
+            test_boolean_literal(expression, expected);
         } else {
             panic!("invalid type: {:?}", expected);
         }
+    }
+
+    fn test_prefix_expression(expression: &Box<Expression>, operator: &str, right: &Any) {
+        let oe = expression.as_prefix_ref().unwrap();
+        assert_eq!(oe.operator, operator);
+        test_literal_expression(&oe.right, right);
     }
 
     fn test_infix_expression(
