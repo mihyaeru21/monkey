@@ -155,6 +155,7 @@ impl Parser {
             TokenType::Int => Box::new(self.parse_integer_literal()?),
             TokenType::Bang | TokenType::Minus => Box::new(self.parse_prefix_expression()?),
             TokenType::True | TokenType::False => Box::new(self.parse_boolean()?),
+            TokenType::LParen => self.parse_grouped_expression()?,
             t => {
                 let msg = format!("no prefix parse function for {:?} found", t);
                 self.errors.push(msg);
@@ -241,6 +242,18 @@ impl Parser {
             token: self.current_token.clone(),
             value: self.current_token_is(TokenType::True),
         })
+    }
+
+    fn parse_grouped_expression(&mut self) -> Result<Box<dyn Expression>> {
+        self.next_token();
+
+        let exp = self.parse_expression(Precedence::Lowest)?;
+
+        if !self.expect_peek(TokenType::RParen) {
+            return Err(ParseError::Err("invalid )".into()));
+        }
+
+        Ok(exp)
     }
 
     fn current_token_is(&self, t: TokenType) -> bool {
@@ -447,6 +460,11 @@ mod tests {
             ("false", "false"),
             ("3 > 5 == false", "((3 > 5) == false)"),
             ("3 < 5 == true", "((3 < 5) == true)"),
+            ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+            ("(5 + 5) * 2", "((5 + 5) * 2)"),
+            ("2 / (5 + 5)", "(2 / (5 + 5))"),
+            ("-(5 + 5)", "(-(5 + 5))"),
+            ("!(true == true)", "(!(true == true))"),
         ];
 
         for t in tests {
