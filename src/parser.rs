@@ -176,7 +176,7 @@ impl Parser {
             TokenType::LParen => self.parse_grouped_expression()?,
             TokenType::If => Expression::If(self.parse_if_expression()?),
             t => {
-                let msg = format!("no prefix parse function for {:?} found", t);
+                let msg = format!("no prefix parse function for `{}` found", t);
                 self.errors.push(msg);
                 return Err(ParseError::Err(
                     "エラーにはしなくていいかも".into(),
@@ -322,7 +322,7 @@ impl Parser {
 
     fn peek_error(&mut self, t: TokenType) {
         self.errors.push(format!(
-            "expected next token to be {:?}, got {:?} instead",
+            "expected next token to be `{}`, got `{}` instead",
             t, self.peek_token.token_type
         ));
     }
