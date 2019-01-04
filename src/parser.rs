@@ -1,4 +1,5 @@
 use crate::ast::BlockStatement;
+use crate::ast::CallExpression;
 use crate::ast::FunctionLiteral;
 use crate::ast::IfExpression;
 use crate::ast::{
@@ -38,6 +39,7 @@ fn token_type_to_precedence(token_type: TokenType) -> Precedence {
         TokenType::Minus => Precedence::Sum,
         TokenType::Slash => Precedence::Product,
         TokenType::Asterisk => Precedence::Product,
+        TokenType::LParen => Precedence::Call,
         _ => Precedence::Lowest,
     }
 }
@@ -187,7 +189,7 @@ impl Parser {
         };
 
         while !self.peek_token_is(TokenType::Semicolon) && precedence < self.peek_precedence() {
-            match self.peek_token.token_type {
+            let infix_func = match self.peek_token.token_type {
                 TokenType::Plus
                 | TokenType::Minus
                 | TokenType::Slash
@@ -195,13 +197,13 @@ impl Parser {
                 | TokenType::Eq
                 | TokenType::NotEq
                 | TokenType::Lt
-                | TokenType::Gt => {}
+                | TokenType::Gt => Parser::parse_infix_expression,
+                TokenType::LParen => Parser::parse_call_expression,
                 _ => return Ok(left_expression),
             };
 
             self.next_token();
-
-            left_expression = Expression::Infix(self.parse_infix_expression(left_expression)?);
+            left_expression = infix_func(self, left_expression)?;
         }
 
         Ok(left_expression)
@@ -242,7 +244,7 @@ impl Parser {
         })
     }
 
-    fn parse_infix_expression(&mut self, left: Expression) -> Result<InfixExpression> {
+    fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression> {
         let token = self.current_token.clone();
 
         let precedence = self.current_precedence();
@@ -250,12 +252,12 @@ impl Parser {
         let right = self.parse_expression(precedence)?;
         let operator = token.literal.clone();
 
-        Ok(InfixExpression {
+        Ok(Expression::Infix(InfixExpression {
             token,
             left: Box::new(left),
             operator,
             right: Box::new(right),
-        })
+        }))
     }
 
     fn parse_boolean(&mut self) -> Result<Boolean> {
@@ -364,6 +366,40 @@ impl Parser {
         }
 
         Ok(identifiers)
+    }
+
+    fn parse_call_expression(&mut self, function: Expression) -> Result<Expression> {
+        let token = self.current_token.clone();
+
+        Ok(Expression::Call(CallExpression {
+            token,
+            function: Box::new(function),
+            arguments: self.parse_call_arguments()?,
+        }))
+    }
+
+    fn parse_call_arguments(&mut self) -> Result<Vec<Expression>> {
+        let mut args = Vec::new();
+
+        if self.peek_token_is(TokenType::RParen) {
+            self.next_token();
+            return Ok(args);
+        }
+
+        self.next_token();
+        args.push(self.parse_expression(Precedence::Lowest)?);
+
+        while self.peek_token_is(TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+            args.push(self.parse_expression(Precedence::Lowest)?);
+        }
+
+        if !self.expect_peek(TokenType::RParen) {
+            return Err(ParseError::Err("expect `)`".into()));
+        }
+
+        Ok(args)
     }
 
     fn current_token_is(&self, t: TokenType) -> bool {
@@ -756,6 +792,32 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_call_expression_parsing() {
+        let input = "add(1, 2 * 3, 4 + 5);";
+
+        let mut parser = Parser::new(Lexer::new(input));
+        let program = parser.parse_program().unwrap();
+        check_parse_errors(&parser);
+
+        assert_eq!(program.statements.len(), 1);
+
+        let statement = match &program.statements[0] {
+            Statement::Expression(s) => s,
+            _ => panic!("invalid variant: {:?}", program.statements[0]),
+        };
+        let call_exp = match &statement.expression {
+            Expression::Call(e) => e,
+            _ => panic!("invalid variant: {:?}", &statement.expression),
+        };
+
+        test_identifier(&call_exp.function, "add");
+        assert_eq!(call_exp.arguments.len(), 3);
+        test_literal_expression(&call_exp.arguments[0], &1);
+        test_infix_expression(&call_exp.arguments[1], &2, "*", &3);
+        test_infix_expression(&call_exp.arguments[2], &4, "+", &5);
+    }
+
     fn test_identifier(expression: &Expression, expected: &str) {
         let ident = match expression {
             Expression::Identifier(e) => e,
@@ -786,6 +848,8 @@ mod tests {
     fn test_literal_expression(expression: &Expression, expected: &dyn Any) {
         if let Some(expected) = expected.downcast_ref::<i64>() {
             test_integer_literal(expression, expected);
+        } else if let Some(expected) = expected.downcast_ref::<i32>() {
+            test_integer_literal(expression, &(*expected as i64));
         } else if let Some(expected) = expected.downcast_ref::<&str>() {
             test_identifier(expression, expected);
         } else if let Some(expected) = expected.downcast_ref::<bool>() {

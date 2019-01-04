@@ -36,6 +36,7 @@ pub enum Expression {
     Infix(InfixExpression),
     If(IfExpression),
     Function(FunctionLiteral),
+    Call(CallExpression),
 }
 
 impl Display for Expression {
@@ -48,6 +49,7 @@ impl Display for Expression {
             Expression::Infix(e) => Display::fmt(e, f),
             Expression::If(e) => Display::fmt(e, f),
             Expression::Function(e) => Display::fmt(e, f),
+            Expression::Call(e) => Display::fmt(e, f),
         }
     }
 }
@@ -220,11 +222,28 @@ pub struct FunctionLiteral {
 
 impl Display for FunctionLiteral {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}(", self.token.literal)?;
-        for parameter in &self.parameters {
-            Display::fmt(parameter, f)?;
-        }
-        write!(f, ") {}", self.body)
+        let params: Vec<String> = self.parameters.iter().map(|p| format!("{}", p)).collect();
+        write!(
+            f,
+            "{}({}) {}",
+            self.token.literal,
+            params.join(", "),
+            self.body
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct CallExpression {
+    pub token: Token, // (
+    pub function: Box<Expression>,
+    pub arguments: Vec<Expression>,
+}
+
+impl Display for CallExpression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let args: Vec<String> = self.arguments.iter().map(|a| format!("{}", a)).collect();
+        write!(f, "{}({})", self.function, args.join(", "))
     }
 }
 
