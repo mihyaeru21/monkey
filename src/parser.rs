@@ -293,12 +293,21 @@ impl Parser {
         }
 
         let consequence = self.parse_block_statement()?;
+        let alternative = if self.peek_token_is(TokenType::Else) {
+            self.next_token();
+            if !self.expect_peek(TokenType::LBrace) {
+                return Err(ParseError::Err("expect `{`".into()));
+            }
+            Some(self.parse_block_statement()?)
+        } else {
+            None
+        };
 
         Ok(IfExpression {
             token,
             condition: Box::new(condition),
             consequence,
-            alternative: None,
+            alternative,
         })
     }
 
