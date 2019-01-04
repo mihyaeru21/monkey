@@ -1,66 +1,60 @@
 use crate::token::Token;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Display, Formatter};
 
-pub trait Node: Debug + Display {
-    fn token_literal(&self) -> &str;
+#[derive(Debug)]
+pub enum Node {
+    Program(Program),
+    Statement(Statement),
+    Expression(Expression),
 }
 
-// Statement と Expression を enum にしら良い気がする
+#[derive(Debug)]
+pub enum Statement {
+    Let(LetStatement),
+    Return(ReturnStatement),
+    Expression(ExpressionStatement),
+}
 
-pub trait Statement: Node {
-    fn as_let_ref(&self) -> Option<&LetStatement> {
-        None
-    }
-
-    fn as_return_ref(&self) -> Option<&ReturnStatement> {
-        None
-    }
-
-    fn as_expression_ref(&self) -> Option<&ExpressionStatement> {
-        None
+impl Display for Statement {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Statement::Let(s) => Display::fmt(s, f),
+            Statement::Return(s) => Display::fmt(s, f),
+            Statement::Expression(s) => Display::fmt(s, f),
+        }
     }
 }
 
-pub trait Expression: Node {
-    fn as_identifier_ref(&self) -> Option<&Identifier> {
-        None
-    }
+#[derive(Debug)]
+pub enum Expression {
+    Identifier(Identifier),
+    IntegerLiteral(IntegerLiteral),
+    BooleanLiteral(Boolean),
+    Prefix(PrefixExpression),
+    Infix(InfixExpression),
+}
 
-    fn as_integer_literal_ref(&self) -> Option<&IntegerLiteral> {
-        None
-    }
-
-    fn as_prefix_ref(&self) -> Option<&PrefixExpression> {
-        None
-    }
-
-    fn as_infix_ref(&self) -> Option<&InfixExpression> {
-        None
-    }
-
-    fn as_boolean_literal_ref(&self) -> Option<&Boolean> {
-        None
+impl Display for Expression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Expression::Identifier(e) => Display::fmt(e, f),
+            Expression::IntegerLiteral(e) => Display::fmt(e, f),
+            Expression::BooleanLiteral(e) => Display::fmt(e, f),
+            Expression::Prefix(e) => Display::fmt(e, f),
+            Expression::Infix(e) => Display::fmt(e, f),
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct Program {
-    pub statements: Vec<Box<dyn Statement>>,
+    pub statements: Vec<Statement>,
 }
 
 impl Program {
     pub fn new() -> Program {
         Program {
             statements: Vec::new(),
-        }
-    }
-}
-
-impl Node for Program {
-    fn token_literal(&self) -> &str {
-        match self.statements.first() {
-            Some(s) => s.token_literal(),
-            None => "".into(),
         }
     }
 }
@@ -78,19 +72,7 @@ impl Display for Program {
 pub struct LetStatement {
     pub token: Token,
     pub name: Identifier,
-    pub value: Box<dyn Expression>,
-}
-
-impl Node for LetStatement {
-    fn token_literal(&self) -> &str {
-        &self.token.literal
-    }
-}
-
-impl Statement for LetStatement {
-    fn as_let_ref(&self) -> Option<&LetStatement> {
-        Some(self)
-    }
+    pub value: Expression,
 }
 
 impl Display for LetStatement {
@@ -106,19 +88,7 @@ impl Display for LetStatement {
 #[derive(Debug)]
 pub struct ReturnStatement {
     pub token: Token,
-    pub return_value: Box<dyn Expression>,
-}
-
-impl Node for ReturnStatement {
-    fn token_literal(&self) -> &str {
-        &self.token.literal
-    }
-}
-
-impl Statement for ReturnStatement {
-    fn as_return_ref(&self) -> Option<&ReturnStatement> {
-        Some(self)
-    }
+    pub return_value: Expression,
 }
 
 impl Display for ReturnStatement {
@@ -130,19 +100,7 @@ impl Display for ReturnStatement {
 #[derive(Debug)]
 pub struct ExpressionStatement {
     pub token: Token, // 式の最初のtoken
-    pub expression: Box<dyn Expression>,
-}
-
-impl Node for ExpressionStatement {
-    fn token_literal(&self) -> &str {
-        &self.token.literal
-    }
-}
-
-impl Statement for ExpressionStatement {
-    fn as_expression_ref(&self) -> Option<&ExpressionStatement> {
-        Some(self)
-    }
+    pub expression: Expression,
 }
 
 impl Display for ExpressionStatement {
@@ -157,18 +115,6 @@ pub struct Identifier {
     pub value: String,
 }
 
-impl Node for Identifier {
-    fn token_literal(&self) -> &str {
-        &self.token.literal
-    }
-}
-
-impl Expression for Identifier {
-    fn as_identifier_ref(&self) -> Option<&Identifier> {
-        Some(self)
-    }
-}
-
 impl Display for Identifier {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(&self.value, f)
@@ -181,18 +127,6 @@ pub struct IntegerLiteral {
     pub value: i64,
 }
 
-impl Node for IntegerLiteral {
-    fn token_literal(&self) -> &str {
-        &self.token.literal
-    }
-}
-
-impl Expression for IntegerLiteral {
-    fn as_integer_literal_ref(&self) -> Option<&IntegerLiteral> {
-        Some(self)
-    }
-}
-
 impl Display for IntegerLiteral {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(&self.value, f)
@@ -203,19 +137,7 @@ impl Display for IntegerLiteral {
 pub struct PrefixExpression {
     pub token: Token,
     pub operator: String,
-    pub right: Box<dyn Expression>,
-}
-
-impl Node for PrefixExpression {
-    fn token_literal(&self) -> &str {
-        &self.token.literal
-    }
-}
-
-impl Expression for PrefixExpression {
-    fn as_prefix_ref(&self) -> Option<&PrefixExpression> {
-        Some(self)
-    }
+    pub right: Box<Expression>,
 }
 
 impl Display for PrefixExpression {
@@ -227,21 +149,9 @@ impl Display for PrefixExpression {
 #[derive(Debug)]
 pub struct InfixExpression {
     pub token: Token,
-    pub left: Box<dyn Expression>,
+    pub left: Box<Expression>,
     pub operator: String,
-    pub right: Box<dyn Expression>,
-}
-
-impl Node for InfixExpression {
-    fn token_literal(&self) -> &str {
-        &self.token.literal
-    }
-}
-
-impl Expression for InfixExpression {
-    fn as_infix_ref(&self) -> Option<&InfixExpression> {
-        Some(self)
-    }
+    pub right: Box<Expression>,
 }
 
 impl Display for InfixExpression {
@@ -254,18 +164,6 @@ impl Display for InfixExpression {
 pub struct Boolean {
     pub token: Token,
     pub value: bool,
-}
-
-impl Node for Boolean {
-    fn token_literal(&self) -> &str {
-        &self.token.literal
-    }
-}
-
-impl Expression for Boolean {
-    fn as_boolean_literal_ref(&self) -> Option<&Boolean> {
-        Some(self)
-    }
 }
 
 impl Display for Boolean {
@@ -282,7 +180,7 @@ mod tests {
     #[test]
     fn test_display() {
         let program = Program {
-            statements: vec![Box::new(LetStatement {
+            statements: vec![Statement::Let(LetStatement {
                 token: Token {
                     token_type: TokenType::Let,
                     literal: "let".into(),
@@ -294,7 +192,7 @@ mod tests {
                     },
                     value: "myVar".into(),
                 },
-                value: Box::new(Identifier {
+                value: Expression::Identifier(Identifier {
                     token: Token {
                         token_type: TokenType::Ident,
                         literal: "anotherVar".into(),

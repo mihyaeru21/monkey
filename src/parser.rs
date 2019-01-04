@@ -80,11 +80,11 @@ impl Parser {
         self.peek_token = self.lexer.next_token();
     }
 
-    fn parse_statement(&mut self) -> Result<Box<dyn Statement>> {
+    fn parse_statement(&mut self) -> Result<Statement> {
         match self.current_token.token_type {
-            TokenType::Let => Ok(Box::new(self.parse_let_statement()?)),
-            TokenType::Return => Ok(Box::new(self.parse_return_statement()?)),
-            _ => Ok(Box::new(self.parse_expression_statement()?)),
+            TokenType::Let => Ok(Statement::Let(self.parse_let_statement()?)),
+            TokenType::Return => Ok(Statement::Return(self.parse_return_statement()?)),
+            _ => Ok(Statement::Expression(self.parse_expression_statement()?)),
         }
     }
 
@@ -114,7 +114,7 @@ impl Parser {
         Ok(LetStatement {
             token,
             name,
-            value: Box::new(cloned_name), // TODO
+            value: Expression::Identifier(cloned_name), // TODO
         })
     }
 
@@ -131,7 +131,7 @@ impl Parser {
         let cloned_token = token.clone();
         Ok(ReturnStatement {
             token,
-            return_value: Box::new(Identifier {
+            return_value: Expression::Identifier(Identifier {
                 token: cloned_token,
                 value: String::new(),
             }),
@@ -149,12 +149,14 @@ impl Parser {
         Ok(ExpressionStatement { token, expression })
     }
 
-    fn parse_expression(&mut self, precedence: Precedence) -> Result<Box<dyn Expression>> {
-        let mut left_expression: Box<dyn Expression> = match self.current_token.token_type {
-            TokenType::Ident => Box::new(self.parse_identifier()),
-            TokenType::Int => Box::new(self.parse_integer_literal()?),
-            TokenType::Bang | TokenType::Minus => Box::new(self.parse_prefix_expression()?),
-            TokenType::True | TokenType::False => Box::new(self.parse_boolean()?),
+    fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression> {
+        let mut left_expression: Expression = match self.current_token.token_type {
+            TokenType::Ident => Expression::Identifier(self.parse_identifier()),
+            TokenType::Int => Expression::IntegerLiteral(self.parse_integer_literal()?),
+            TokenType::Bang | TokenType::Minus => {
+                Expression::Prefix(self.parse_prefix_expression()?)
+            }
+            TokenType::True | TokenType::False => Expression::BooleanLiteral(self.parse_boolean()?),
             TokenType::LParen => self.parse_grouped_expression()?,
             t => {
                 let msg = format!("no prefix parse function for {:?} found", t);
@@ -180,7 +182,7 @@ impl Parser {
 
             self.next_token();
 
-            left_expression = Box::new(self.parse_infix_expression(left_expression)?);
+            left_expression = Expression::Infix(self.parse_infix_expression(left_expression)?);
         }
 
         Ok(left_expression)
@@ -217,11 +219,11 @@ impl Parser {
         Ok(PrefixExpression {
             token,
             operator,
-            right,
+            right: Box::new(right),
         })
     }
 
-    fn parse_infix_expression(&mut self, left: Box<dyn Expression>) -> Result<InfixExpression> {
+    fn parse_infix_expression(&mut self, left: Expression) -> Result<InfixExpression> {
         let token = self.current_token.clone();
 
         let precedence = self.current_precedence();
@@ -231,9 +233,9 @@ impl Parser {
 
         Ok(InfixExpression {
             token,
-            left,
+            left: Box::new(left),
             operator,
-            right,
+            right: Box::new(right),
         })
     }
 
@@ -244,7 +246,7 @@ impl Parser {
         })
     }
 
-    fn parse_grouped_expression(&mut self) -> Result<Box<dyn Expression>> {
+    fn parse_grouped_expression(&mut self) -> Result<Expression> {
         self.next_token();
 
         let exp = self.parse_expression(Precedence::Lowest)?;
@@ -293,7 +295,6 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::Node;
     use crate::lexer::Lexer;
     use std::any::Any;
 
@@ -316,10 +317,11 @@ mod tests {
 
         for (i, t) in tests.iter().enumerate() {
             let statement = &program.statements[i];
-            assert_eq!(statement.token_literal(), "let");
-
-            let let_statement = statement.as_let_ref().unwrap();
-            assert_eq!(let_statement.token_literal(), "let");
+            let let_statement = match statement {
+                Statement::Let(s) => s,
+                _ => panic!("invalid variant: {:?}", statement),
+            };
+            assert_eq!(let_statement.token.literal, "let");
             assert_eq!(let_statement.name.value, *t);
             assert_eq!(let_statement.name.token.literal, *t)
         }
@@ -341,8 +343,11 @@ mod tests {
         assert_eq!(program.statements.len(), 3);
 
         for statement in &program.statements {
-            let return_statement = statement.as_return_ref().unwrap();
-            assert_eq!(return_statement.token_literal(), "return");
+            let return_statement = match statement {
+                Statement::Return(s) => s,
+                _ => panic!("invalid variant: {:?}", statement),
+            };
+            assert_eq!(return_statement.token.literal, "return");
         }
     }
 
@@ -357,7 +362,10 @@ mod tests {
 
         assert_eq!(program.statements.len(), 1);
 
-        let statement = program.statements[0].as_expression_ref().unwrap();
+        let statement = match &program.statements[0] {
+            Statement::Expression(s) => s,
+            _ => panic!("invalid variant: {:?}", program.statements[0]),
+        };
         test_identifier(&statement.expression, "foobar");
     }
 
@@ -372,7 +380,10 @@ mod tests {
 
         assert_eq!(program.statements.len(), 1);
 
-        let statement = program.statements[0].as_expression_ref().unwrap();
+        let statement = match &program.statements[0] {
+            Statement::Expression(s) => s,
+            _ => panic!("invalid variant: {:?}", program.statements[0]),
+        };
         test_integer_literal(&statement.expression, &5);
     }
 
@@ -385,7 +396,10 @@ mod tests {
 
             assert_eq!(program.statements.len(), 1);
 
-            let statement = program.statements[0].as_expression_ref().unwrap();
+            let statement = match &program.statements[0] {
+                Statement::Expression(s) => s,
+                _ => panic!("invalid variant: {:?}", program.statements[0]),
+            };
             test_prefix_expression(&statement.expression, op, right);
         }
 
@@ -410,7 +424,10 @@ mod tests {
 
             assert_eq!(program.statements.len(), 1);
 
-            let statement = program.statements[0].as_expression_ref().unwrap();
+            let statement = match &program.statements[0] {
+                Statement::Expression(s) => s,
+                _ => panic!("invalid variant: {:?}", program.statements[0]),
+            };
             test_infix_expression(&statement.expression, left, op, right);
         }
 
@@ -486,30 +503,42 @@ mod tests {
 
             assert_eq!(program.statements.len(), 1);
 
-            let statement = program.statements[0].as_expression_ref().unwrap();
+            let statement = match &program.statements[0] {
+                Statement::Expression(s) => s,
+                _ => panic!("invalid variant: {:?}", program.statements[0]),
+            };
             test_boolean_literal(&statement.expression, &t.1);
         }
     }
 
-    fn test_identifier(expression: &Box<Expression>, expected: &str) {
-        let ident = expression.as_identifier_ref().unwrap();
+    fn test_identifier(expression: &Expression, expected: &str) {
+        let ident = match expression {
+            Expression::Identifier(e) => e,
+            _ => panic!("invalid variant: {:?}", expression),
+        };
         assert_eq!(ident.value, expected);
-        assert_eq!(ident.token_literal(), expected);
+        assert_eq!(ident.token.literal, expected);
     }
 
-    fn test_integer_literal(expression: &Box<Expression>, expected: &i64) {
-        let integer = expression.as_integer_literal_ref().unwrap();
+    fn test_integer_literal(expression: &Expression, expected: &i64) {
+        let integer = match expression {
+            Expression::IntegerLiteral(e) => e,
+            _ => panic!("invalid variant: {:?}", expression),
+        };
         assert_eq!(integer.value, *expected);
-        assert_eq!(integer.token_literal(), format!("{}", expected));
+        assert_eq!(integer.token.literal, format!("{}", expected));
     }
 
-    fn test_boolean_literal(expression: &Box<Expression>, expected: &bool) {
-        let boolean = expression.as_boolean_literal_ref().unwrap();
+    fn test_boolean_literal(expression: &Expression, expected: &bool) {
+        let boolean = match expression {
+            Expression::BooleanLiteral(e) => e,
+            _ => panic!("invalid variant: {:?}", expression),
+        };
         assert_eq!(boolean.value, *expected);
-        assert_eq!(boolean.token_literal(), format!("{}", expected));
+        assert_eq!(boolean.token.literal, format!("{}", expected));
     }
 
-    fn test_literal_expression(expression: &Box<Expression>, expected: &dyn Any) {
+    fn test_literal_expression(expression: &Expression, expected: &dyn Any) {
         if let Some(expected) = expected.downcast_ref::<i64>() {
             test_integer_literal(expression, expected);
         } else if let Some(expected) = expected.downcast_ref::<&str>() {
@@ -521,19 +550,20 @@ mod tests {
         }
     }
 
-    fn test_prefix_expression(expression: &Box<Expression>, operator: &str, right: &Any) {
-        let oe = expression.as_prefix_ref().unwrap();
+    fn test_prefix_expression(expression: &Expression, operator: &str, right: &Any) {
+        let oe = match expression {
+            Expression::Prefix(e) => e,
+            _ => panic!("invalid variant: {:?}", expression),
+        };
         assert_eq!(oe.operator, operator);
         test_literal_expression(&oe.right, right);
     }
 
-    fn test_infix_expression(
-        expression: &Box<Expression>,
-        left: &Any,
-        operator: &str,
-        right: &Any,
-    ) {
-        let oe = expression.as_infix_ref().unwrap();
+    fn test_infix_expression(expression: &Expression, left: &Any, operator: &str, right: &Any) {
+        let oe = match expression {
+            Expression::Infix(e) => e,
+            _ => panic!("invalid variant: {:?}", expression),
+        };
         test_literal_expression(&oe.left, left);
         assert_eq!(oe.operator, operator);
         test_literal_expression(&oe.right, right);
