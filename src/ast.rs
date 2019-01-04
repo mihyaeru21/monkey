@@ -35,6 +35,7 @@ pub enum Expression {
     Prefix(PrefixExpression),
     Infix(InfixExpression),
     If(IfExpression),
+    Function(FunctionLiteral),
 }
 
 impl Display for Expression {
@@ -46,6 +47,7 @@ impl Display for Expression {
             Expression::Prefix(e) => Display::fmt(e, f),
             Expression::Infix(e) => Display::fmt(e, f),
             Expression::If(e) => Display::fmt(e, f),
+            Expression::Function(e) => Display::fmt(e, f),
         }
     }
 }
@@ -206,6 +208,23 @@ impl Display for IfExpression {
             write!(f, "else {}", alt)?;
         }
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct FunctionLiteral {
+    pub token: Token, // fn
+    pub parameters: Vec<Identifier>,
+    pub body: BlockStatement,
+}
+
+impl Display for FunctionLiteral {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}(", self.token.literal)?;
+        for parameter in &self.parameters {
+            Display::fmt(parameter, f)?;
+        }
+        write!(f, ") {}", self.body)
     }
 }
 

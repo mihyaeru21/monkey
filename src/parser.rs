@@ -1,4 +1,5 @@
 use crate::ast::BlockStatement;
+use crate::ast::FunctionLiteral;
 use crate::ast::IfExpression;
 use crate::ast::{
     Boolean, Expression, ExpressionStatement, Identifier, InfixExpression, IntegerLiteral,
@@ -175,6 +176,7 @@ impl Parser {
             TokenType::True | TokenType::False => Expression::BooleanLiteral(self.parse_boolean()?),
             TokenType::LParen => self.parse_grouped_expression()?,
             TokenType::If => Expression::If(self.parse_if_expression()?),
+            TokenType::Function => Expression::Function(self.parse_function_literal()?),
             t => {
                 let msg = format!("no prefix parse function for `{}` found", t);
                 self.errors.push(msg);
@@ -309,6 +311,59 @@ impl Parser {
             consequence,
             alternative,
         })
+    }
+
+    fn parse_function_literal(&mut self) -> Result<FunctionLiteral> {
+        let token = self.current_token.clone();
+
+        if !self.expect_peek(TokenType::LParen) {
+            return Err(ParseError::Err("expect `(`".into()));
+        }
+
+        let parameters = self.parse_function_parameters()?;
+
+        if !self.expect_peek(TokenType::LBrace) {
+            return Err(ParseError::Err("expect `{`".into()));
+        }
+
+        let body = self.parse_block_statement()?;
+
+        Ok(FunctionLiteral {
+            token,
+            parameters,
+            body,
+        })
+    }
+
+    fn parse_function_parameters(&mut self) -> Result<Vec<Identifier>> {
+        let mut identifiers = Vec::new();
+
+        if self.peek_token_is(TokenType::RParen) {
+            self.next_token();
+            return Ok(identifiers);
+        }
+
+        self.next_token();
+
+        identifiers.push(Identifier {
+            token: self.current_token.clone(),
+            value: self.current_token.literal.clone(),
+        });
+
+        while self.peek_token_is(TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+            identifiers.push(Identifier {
+                token: self.current_token.clone(),
+                value: self.current_token.literal.clone(),
+            });
+        }
+
+        if !self.expect_peek(TokenType::RParen) {
+            return Err(ParseError::Err("expect `)`".into()));
+        }
+
+        Ok(identifiers)
     }
 
     fn current_token_is(&self, t: TokenType) -> bool {
@@ -631,6 +686,44 @@ mod tests {
             _ => panic!("invalid variant: {:?}", alt.statements[0]),
         };
         test_identifier(&alternative.expression, "y");
+    }
+
+    #[test]
+    fn test_function_literal() {
+        let input = "fn(x, y) { x + y; }";
+
+        let mut parser = Parser::new(Lexer::new(input));
+        let program = parser.parse_program().unwrap();
+        check_parse_errors(&parser);
+
+        assert_eq!(program.statements.len(), 1);
+
+        let statement = match &program.statements[0] {
+            Statement::Expression(s) => s,
+            _ => panic!("invalid variant: {:?}", program.statements[0]),
+        };
+
+        let func_exp = match &statement.expression {
+            Expression::Function(e) => e,
+            _ => panic!("invalid variant: {:?}", &statement.expression),
+        };
+
+        assert_eq!(func_exp.parameters.len(), 2);
+        test_literal_expression(
+            &Expression::Identifier(func_exp.parameters[0].clone()),
+            &"x",
+        );
+        test_literal_expression(
+            &Expression::Identifier(func_exp.parameters[1].clone()),
+            &"y",
+        );
+
+        assert_eq!(func_exp.body.statements.len(), 1);
+        let body = match &func_exp.body.statements[0] {
+            Statement::Expression(s) => s,
+            _ => panic!("invalid variant: {:?}", func_exp.body.statements[0]),
+        };
+        test_infix_expression(&body.expression, &"x", "+", &"y");
     }
 
     fn test_identifier(expression: &Expression, expected: &str) {
