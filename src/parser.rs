@@ -726,6 +726,36 @@ mod tests {
         test_infix_expression(&body.expression, &"x", "+", &"y");
     }
 
+    #[test]
+    fn test_function_parameter_parsing() {
+        let tests: Vec<(&str, Vec<&str>)> = vec![
+            ("fn() {};", vec![]),
+            ("fn(x) {};", vec!["x"]),
+            ("fn(x, y, z) {};", vec!["x", "y", "z"]),
+        ];
+
+        for t in tests {
+            let mut parser = Parser::new(Lexer::new(t.0));
+            let program = parser.parse_program().unwrap();
+            check_parse_errors(&parser);
+
+            let statement = match &program.statements[0] {
+                Statement::Expression(s) => s,
+                _ => panic!("invalid variant: {:?}", program.statements[0]),
+            };
+            let func_exp = match &statement.expression {
+                Expression::Function(e) => e,
+                _ => panic!("invalid variant: {:?}", &statement.expression),
+            };
+
+            assert_eq!(func_exp.parameters.len(), t.1.len());
+            for (i, expect) in t.1.iter().enumerate() {
+                let exp = Expression::Identifier(func_exp.parameters[i].clone());
+                test_literal_expression(&exp, expect);
+            }
+        }
+    }
+
     fn test_identifier(expression: &Expression, expected: &str) {
         let ident = match expression {
             Expression::Identifier(e) => e,
