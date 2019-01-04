@@ -100,27 +100,24 @@ impl Parser {
             return Err(ParseError::Err("hoge".into()));
         }
 
-        let t = self.current_token.clone();
         let name = Identifier {
-            value: t.literal.clone(),
-            token: t,
+            token: self.current_token.clone(),
+            value: self.current_token.literal.clone(),
         };
 
         if !self.expect_peek(TokenType::Assign) {
             return Err(ParseError::Err("fuga".into()));
         }
 
-        // TODO: 式を実装したら実装する
-        while !self.current_token_is(TokenType::Semicolon) {
+        self.next_token();
+
+        let value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token_is(TokenType::Semicolon) {
             self.next_token();
         }
 
-        let cloned_name = name.clone();
-        Ok(LetStatement {
-            token,
-            name,
-            value: Expression::Identifier(cloned_name), // TODO
-        })
+        Ok(LetStatement { token, name, value })
     }
 
     fn parse_return_statement(&mut self) -> Result<ReturnStatement> {
@@ -128,18 +125,15 @@ impl Parser {
 
         self.next_token();
 
-        // TODO: 式を実装したら実装する
-        while !self.current_token_is(TokenType::Semicolon) {
+        let return_value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token_is(TokenType::Semicolon) {
             self.next_token();
         }
 
-        let cloned_token = token.clone();
         Ok(ReturnStatement {
             token,
-            return_value: Expression::Identifier(Identifier {
-                token: cloned_token,
-                value: String::new(),
-            }),
+            return_value,
         })
     }
 
@@ -444,55 +438,38 @@ mod tests {
 
     #[test]
     fn test_let_statements() {
-        let input = r#"
-            let x = 5;
-            let y = 10;
-            let foobar = 838383;
-        "#;
+        fn test(input: &str, expected_identifier: &str, expected_value: &Any) {
+            let mut parser = Parser::new(Lexer::new(input));
+            let program = parser.parse_program().unwrap();
+            check_parse_errors(&parser);
 
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program().unwrap();
-        check_parse_errors(&parser);
+            assert_eq!(program.statements.len(), 1);
 
-        assert_eq!(program.statements.len(), 3);
-
-        let tests: Vec<(&str)> = vec![("x"), ("y"), ("foobar")];
-
-        for (i, t) in tests.iter().enumerate() {
-            let statement = &program.statements[i];
-            let let_statement = match statement {
-                Statement::Let(s) => s,
-                _ => panic!("invalid variant: {:?}", statement),
-            };
-            assert_eq!(let_statement.token.literal, "let");
-            assert_eq!(let_statement.name.value, *t);
-            assert_eq!(let_statement.name.token.literal, *t)
+            let statement = &program.statements[0];
+            test_let_statement(&statement, expected_identifier, expected_value);
         }
+
+        test("let x = 5;", "x", &5);
+        test("let y = true;", "y", &true);
+        test("let foobar = y;", "foobar", &"y");
     }
 
     #[test]
-    fn test_return_statement() {
-        let input = r#"
-            return 5;
-            return 10;
-            return 993322;
-        "#;
+    fn test_return_statements() {
+        fn test(input: &str, expected: &Any) {
+            let mut parser = Parser::new(Lexer::new(input));
+            let program = parser.parse_program().unwrap();
+            check_parse_errors(&parser);
 
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program().unwrap();
-        check_parse_errors(&parser);
+            assert_eq!(program.statements.len(), 1);
 
-        assert_eq!(program.statements.len(), 3);
-
-        for statement in &program.statements {
-            let return_statement = match statement {
-                Statement::Return(s) => s,
-                _ => panic!("invalid variant: {:?}", statement),
-            };
-            assert_eq!(return_statement.token.literal, "return");
+            let statement = &program.statements[0];
+            test_return_statement(&statement, expected);
         }
+
+        test("return 5;", &5);
+        test("return x;", &"x");
+        test("return false;", &false);
     }
 
     #[test]
@@ -825,6 +802,28 @@ mod tests {
         test_literal_expression(&call_exp.arguments[0], &1);
         test_infix_expression(&call_exp.arguments[1], &2, "*", &3);
         test_infix_expression(&call_exp.arguments[2], &4, "+", &5);
+    }
+
+    fn test_let_statement(statement: &Statement, expected_identifier: &str, expected_value: &Any) {
+        let let_statement = match statement {
+            Statement::Let(s) => s,
+            _ => panic!("invalid variant: {:?}", statement),
+        };
+        assert_eq!(let_statement.token.literal, "let");
+        test_identifier(
+            &Expression::Identifier(let_statement.name.clone()),
+            expected_identifier,
+        );
+        test_literal_expression(&let_statement.value, expected_value);
+    }
+
+    fn test_return_statement(statement: &Statement, expected: &Any) {
+        let return_statement = match statement {
+            Statement::Return(s) => s,
+            _ => panic!("invalid variant: {:?}", statement),
+        };
+        assert_eq!(return_statement.token.literal, "return");
+        test_literal_expression(&return_statement.return_value, expected);
     }
 
     fn test_identifier(expression: &Expression, expected: &str) {
