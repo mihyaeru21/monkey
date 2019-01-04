@@ -13,6 +13,7 @@ pub enum Statement {
     Let(LetStatement),
     Return(ReturnStatement),
     Expression(ExpressionStatement),
+    Block(BlockStatement),
 }
 
 impl Display for Statement {
@@ -21,6 +22,7 @@ impl Display for Statement {
             Statement::Let(s) => Display::fmt(s, f),
             Statement::Return(s) => Display::fmt(s, f),
             Statement::Expression(s) => Display::fmt(s, f),
+            Statement::Block(s) => Display::fmt(s, f),
         }
     }
 }
@@ -32,6 +34,7 @@ pub enum Expression {
     BooleanLiteral(Boolean),
     Prefix(PrefixExpression),
     Infix(InfixExpression),
+    If(IfExpression),
 }
 
 impl Display for Expression {
@@ -42,6 +45,7 @@ impl Display for Expression {
             Expression::BooleanLiteral(e) => Display::fmt(e, f),
             Expression::Prefix(e) => Display::fmt(e, f),
             Expression::Infix(e) => Display::fmt(e, f),
+            Expression::If(e) => Display::fmt(e, f),
         }
     }
 }
@@ -109,6 +113,21 @@ impl Display for ExpressionStatement {
     }
 }
 
+#[derive(Debug)]
+pub struct BlockStatement {
+    pub token: Token,
+    pub statements: Vec<Statement>,
+}
+
+impl Display for BlockStatement {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        for statement in &self.statements {
+            Display::fmt(statement, f)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Identifier {
     pub token: Token,
@@ -169,6 +188,24 @@ pub struct Boolean {
 impl Display for Boolean {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(&self.value, f)
+    }
+}
+
+#[derive(Debug)]
+pub struct IfExpression {
+    pub token: Token,
+    pub condition: Box<Expression>,
+    pub consequence: BlockStatement,
+    pub alternative: Option<BlockStatement>,
+}
+
+impl Display for IfExpression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "if {} {}", self.condition, self.consequence)?;
+        if let Some(alt) = &self.alternative {
+            write!(f, "else {}", alt)?;
+        }
+        Ok(())
     }
 }
 

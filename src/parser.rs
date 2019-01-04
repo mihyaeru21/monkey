@@ -1,3 +1,5 @@
+use crate::ast::BlockStatement;
+use crate::ast::IfExpression;
 use crate::ast::{
     Boolean, Expression, ExpressionStatement, Identifier, InfixExpression, IntegerLiteral,
     LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
@@ -149,6 +151,20 @@ impl Parser {
         Ok(ExpressionStatement { token, expression })
     }
 
+    fn parse_block_statement(&mut self) -> Result<BlockStatement> {
+        let token = self.current_token.clone();
+
+        self.next_token();
+
+        let mut statements = Vec::new();
+        while !self.current_token_is(TokenType::RBrace) && !self.current_token_is(TokenType::EOF) {
+            statements.push(self.parse_statement()?);
+            self.next_token();
+        }
+
+        Ok(BlockStatement { token, statements })
+    }
+
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression> {
         let mut left_expression: Expression = match self.current_token.token_type {
             TokenType::Ident => Expression::Identifier(self.parse_identifier()),
@@ -158,6 +174,7 @@ impl Parser {
             }
             TokenType::True | TokenType::False => Expression::BooleanLiteral(self.parse_boolean()?),
             TokenType::LParen => self.parse_grouped_expression()?,
+            TokenType::If => Expression::If(self.parse_if_expression()?),
             t => {
                 let msg = format!("no prefix parse function for {:?} found", t);
                 self.errors.push(msg);
@@ -256,6 +273,33 @@ impl Parser {
         }
 
         Ok(exp)
+    }
+
+    fn parse_if_expression(&mut self) -> Result<IfExpression> {
+        if !self.expect_peek(TokenType::LParen) {
+            return Err(ParseError::Err("expect `(`".into()));
+        }
+
+        let token = self.current_token.clone();
+        self.next_token();
+        let condition = self.parse_expression(Precedence::Lowest)?;
+
+        if !self.expect_peek(TokenType::RParen) {
+            return Err(ParseError::Err("expect `)`".into()));
+        }
+
+        if !self.expect_peek(TokenType::LBrace) {
+            return Err(ParseError::Err("expect `{`".into()));
+        }
+
+        let consequence = self.parse_block_statement()?;
+
+        Ok(IfExpression {
+            token,
+            condition: Box::new(condition),
+            consequence,
+            alternative: None,
+        })
     }
 
     fn current_token_is(&self, t: TokenType) -> bool {
@@ -509,6 +553,75 @@ mod tests {
             };
             test_boolean_literal(&statement.expression, &t.1);
         }
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x < y) { x }";
+
+        let mut parser = Parser::new(Lexer::new(input));
+        let program = parser.parse_program().unwrap();
+        check_parse_errors(&parser);
+
+        assert_eq!(program.statements.len(), 1);
+
+        let statement = match &program.statements[0] {
+            Statement::Expression(s) => s,
+            _ => panic!("invalid variant: {:?}", program.statements[0]),
+        };
+
+        let if_exp = match &statement.expression {
+            Expression::If(e) => e,
+            _ => panic!("invalid variant: {:?}", &statement.expression),
+        };
+
+        test_infix_expression(if_exp.condition.as_ref(), &"x", "<", &"y");
+        assert_eq!(if_exp.consequence.statements.len(), 1);
+
+        let consequence = match &if_exp.consequence.statements[0] {
+            Statement::Expression(s) => s,
+            _ => panic!("invalid variant: {:?}", if_exp.consequence.statements[0]),
+        };
+        test_identifier(&consequence.expression, "x");
+
+        assert!(if_exp.alternative.is_none());
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if (x < y) { x } else { y }";
+
+        let mut parser = Parser::new(Lexer::new(input));
+        let program = parser.parse_program().unwrap();
+        check_parse_errors(&parser);
+
+        assert_eq!(program.statements.len(), 1);
+
+        let statement = match &program.statements[0] {
+            Statement::Expression(s) => s,
+            _ => panic!("invalid variant: {:?}", program.statements[0]),
+        };
+
+        let if_exp = match &statement.expression {
+            Expression::If(e) => e,
+            _ => panic!("invalid variant: {:?}", &statement.expression),
+        };
+
+        test_infix_expression(if_exp.condition.as_ref(), &"x", "<", &"y");
+        assert_eq!(if_exp.consequence.statements.len(), 1);
+
+        let consequence = match &if_exp.consequence.statements[0] {
+            Statement::Expression(s) => s,
+            _ => panic!("invalid variant: {:?}", if_exp.consequence.statements[0]),
+        };
+        test_identifier(&consequence.expression, "x");
+
+        let alt = if_exp.alternative.as_ref().unwrap();
+        let alternative = match &alt.statements[0] {
+            Statement::Expression(s) => s,
+            _ => panic!("invalid variant: {:?}", alt.statements[0]),
+        };
+        test_identifier(&alternative.expression, "y");
     }
 
     fn test_identifier(expression: &Expression, expected: &str) {
