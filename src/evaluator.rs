@@ -82,6 +82,7 @@ fn eval_minus_operator(right: &Object) -> Result<Object> {
 fn eval_infix_expression(left: &Object, operator: &str, right: &Object) -> Result<Object> {
     match (left, right) {
         (Object::Integer(l), Object::Integer(r)) => eval_integer_infix_expression(*l, operator, *r),
+        (Object::Boolean(l), Object::Boolean(r)) => eval_boolean_infix_expression(*l, operator, *r),
         _ => Err(EvalError::Err(format!(
             "invalid operand. left: {:?}, right: {:?}",
             left, right
@@ -101,6 +102,17 @@ fn eval_integer_infix_expression(left: i64, operator: &str, right: i64) -> Resul
         "!=" => Ok(Object::Boolean(left != right)),
         _ => Err(EvalError::Err(format!(
             "invalid integer infix operator: {:?}",
+            operator
+        ))),
+    }
+}
+
+fn eval_boolean_infix_expression(left: bool, operator: &str, right: bool) -> Result<Object> {
+    match operator {
+        "==" => Ok(Object::Boolean(left == right)),
+        "!=" => Ok(Object::Boolean(left != right)),
+        _ => Err(EvalError::Err(format!(
+            "invalid boolean infix operator: {:?}",
             operator
         ))),
     }
@@ -150,6 +162,15 @@ mod tests {
             ("1 != 1", false),
             ("1 == 2", false),
             ("1 != 2", true),
+            ("true == true", true),
+            ("false == false", true),
+            ("true == false", false),
+            ("true != false", true),
+            ("false != true", true),
+            ("(1 < 2) == true", true),
+            ("(1 < 2) == false", false),
+            ("(1 > 2) == true", false),
+            ("(1 > 2) == false", true),
         ];
         for t in tests {
             let evaluated = test_eval(t.0);
