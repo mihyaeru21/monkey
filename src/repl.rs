@@ -28,7 +28,7 @@ pub fn start<R: BufRead, W: Write>(mut input: R, mut output: W) -> io::Result<()
 
         match eval(&program) {
             Ok(obj) => writeln!(output, "{}", obj.inspect())?,
-            Err(_) => {}
+            Err(e) => writeln!(output, "{}", e)?,
         };
     }
 }
