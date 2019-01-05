@@ -1,4 +1,4 @@
-use crate::ast::{Expression, Program, Statement};
+use crate::ast::{Expression, IfExpression, Program, Statement};
 use crate::object::Object;
 use std::result;
 
@@ -24,6 +24,7 @@ fn eval_statements(statements: &Vec<Statement>) -> Result<Object> {
 fn eval_statement(statement: &Statement) -> Result<Object> {
     match statement {
         Statement::Expression(s) => eval_expression(&s.expression),
+        Statement::Block(s) => eval_statements(&s.statements),
         _ => Err(EvalError::Err(format!(
             "unexpected statement: {:?}",
             statement
@@ -41,6 +42,7 @@ fn eval_expression(expression: &Expression) -> Result<Object> {
             &e.operator,
             &eval_expression(&e.right)?,
         ),
+        Expression::If(e) => eval_if_expression(e),
         _ => Err(EvalError::Err(format!(
             "unexpected expression: {:?}",
             expression
@@ -118,6 +120,25 @@ fn eval_boolean_infix_expression(left: bool, operator: &str, right: bool) -> Res
     }
 }
 
+fn eval_if_expression(if_exp: &IfExpression) -> Result<Object> {
+    let condition = eval_expression(&if_exp.condition)?;
+
+    if is_truthy(&condition) {
+        Ok(eval_statement(&if_exp.consequence)?)
+    } else if let Some(alternative) = &if_exp.alternative {
+        Ok(eval_statement(alternative.as_ref())?)
+    } else {
+        Ok(Object::Null)
+    }
+}
+
+fn is_truthy(object: &Object) -> bool {
+    match object {
+        Object::Null | Object::Boolean(false) => false,
+        _ => true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,7 +166,7 @@ mod tests {
         ];
         for t in tests {
             let evaluated = test_eval(t.0);
-            test_integer_object(evaluated, t.1);
+            test_integer_object(&evaluated, t.1);
         }
     }
 
@@ -174,7 +195,7 @@ mod tests {
         ];
         for t in tests {
             let evaluated = test_eval(t.0);
-            test_boolean_object(evaluated, t.1);
+            test_boolean_object(&evaluated, t.1);
         }
     }
 
@@ -190,7 +211,28 @@ mod tests {
         ];
         for t in tests {
             let evaluated = test_eval(t.0);
-            test_boolean_object(evaluated, t.1);
+            test_boolean_object(&evaluated, t.1);
+        }
+    }
+
+    #[test]
+    fn test_if_expressions() {
+        let int_tests: Vec<(&str, i64)> = vec![
+            ("if (true) { 10 }", 10),
+            ("if (1) { 10 }", 10),
+            ("if (1 < 2) { 10 }", 10),
+            ("if (1 > 2) { 10 } else { 20 }", 20),
+            ("if (1 < 2) { 10 } else { 20 }", 10),
+        ];
+        for t in int_tests {
+            let evaluated = test_eval(t.0);
+            test_integer_object(&evaluated, t.1);
+        }
+
+        let null_tests: Vec<&str> = vec!["if (false) { 10 }", "if (1 > 2) { 10 }"];
+        for t in null_tests {
+            let evaluated = test_eval(t);
+            test_null_object(&evaluated);
         }
     }
 
@@ -200,19 +242,26 @@ mod tests {
         eval(&program).unwrap()
     }
 
-    fn test_integer_object(object: Object, expected: i64) {
+    fn test_integer_object(object: &Object, expected: i64) {
         let int = match object {
             Object::Integer(i) => i,
             _ => panic!("object is not Integer. got: {:?}", object),
         };
-        assert_eq!(int, expected);
+        assert_eq!(*int, expected);
     }
 
-    fn test_boolean_object(object: Object, expected: bool) {
+    fn test_boolean_object(object: &Object, expected: bool) {
         let boolean = match object {
             Object::Boolean(b) => b,
             _ => panic!("object is not Boolean. got: {:?}", object),
         };
-        assert_eq!(boolean, expected);
+        assert_eq!(*boolean, expected);
+    }
+
+    fn test_null_object(object: &Object) {
+        match object {
+            Object::Null => {}
+            _ => panic!("object is not null. got: {:?}", object),
+        };
     }
 }

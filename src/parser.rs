@@ -300,7 +300,7 @@ impl Parser {
             if !self.expect_peek(TokenType::LBrace) {
                 return Err(ParseError::Err("expect `{`".into()));
             }
-            Some(self.parse_block_statement()?)
+            Some(Box::new(Statement::Block(self.parse_block_statement()?)))
         } else {
             None
         };
@@ -308,7 +308,7 @@ impl Parser {
         Ok(IfExpression {
             token,
             condition: Box::new(condition),
-            consequence,
+            consequence: Box::new(Statement::Block(consequence)),
             alternative,
         })
     }
@@ -666,11 +666,15 @@ mod tests {
         };
 
         test_infix_expression(if_exp.condition.as_ref(), &"x", "<", &"y");
-        assert_eq!(if_exp.consequence.statements.len(), 1);
+        let cons = match if_exp.consequence.as_ref() {
+            Statement::Block(b) => b,
+            _ => panic!("invalid variant: {:?}", &if_exp.consequence),
+        };
+        assert_eq!(cons.statements.len(), 1);
 
-        let consequence = match &if_exp.consequence.statements[0] {
+        let consequence = match &cons.statements[0] {
             Statement::Expression(s) => s,
-            _ => panic!("invalid variant: {:?}", if_exp.consequence.statements[0]),
+            _ => panic!("invalid variant: {:?}", cons.statements[0]),
         };
         test_identifier(&consequence.expression, "x");
 
@@ -698,15 +702,22 @@ mod tests {
         };
 
         test_infix_expression(if_exp.condition.as_ref(), &"x", "<", &"y");
-        assert_eq!(if_exp.consequence.statements.len(), 1);
+        let cons = match if_exp.consequence.as_ref() {
+            Statement::Block(b) => b,
+            _ => panic!("invalid variant: {:?}", &if_exp.consequence),
+        };
+        assert_eq!(cons.statements.len(), 1);
 
-        let consequence = match &if_exp.consequence.statements[0] {
+        let consequence = match &cons.statements[0] {
             Statement::Expression(s) => s,
-            _ => panic!("invalid variant: {:?}", if_exp.consequence.statements[0]),
+            _ => panic!("invalid variant: {:?}", cons.statements[0]),
         };
         test_identifier(&consequence.expression, "x");
 
-        let alt = if_exp.alternative.as_ref().unwrap();
+        let alt = match if_exp.alternative.as_ref().unwrap().as_ref() {
+            Statement::Block(b) => b,
+            _ => panic!("invalid variant: {:?}", &if_exp.consequence),
+        };
         let alternative = match &alt.statements[0] {
             Statement::Expression(s) => s,
             _ => panic!("invalid variant: {:?}", alt.statements[0]),

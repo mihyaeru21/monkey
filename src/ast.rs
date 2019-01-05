@@ -2,13 +2,6 @@ use crate::token::Token;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug)]
-pub enum Node {
-    Program(Program),
-    Statement(Statement),
-    Expression(Expression),
-}
-
-#[derive(Debug)]
 pub enum Statement {
     Let(LetStatement),
     Return(ReturnStatement),
@@ -199,8 +192,8 @@ impl Display for Boolean {
 pub struct IfExpression {
     pub token: Token,
     pub condition: Box<Expression>,
-    pub consequence: BlockStatement,
-    pub alternative: Option<BlockStatement>,
+    pub consequence: Box<Statement>,
+    pub alternative: Option<Box<Statement>>,
 }
 
 impl Display for IfExpression {
