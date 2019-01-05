@@ -90,19 +90,20 @@ fn eval_infix_expression(left: &Object, operator: &str, right: &Object) -> Resul
 }
 
 fn eval_integer_infix_expression(left: i64, operator: &str, right: i64) -> Result<Object> {
-    let res = match operator {
-        "+" => left + right,
-        "-" => left - right,
-        "*" => left * right,
-        "/" => left / right,
-        _ => {
-            return Err(EvalError::Err(format!(
-                "invalid integer infix operator: {:?}",
-                operator
-            )));
-        }
-    };
-    Ok(Object::Integer(res))
+    match operator {
+        "+" => Ok(Object::Integer(left + right)),
+        "-" => Ok(Object::Integer(left - right)),
+        "*" => Ok(Object::Integer(left * right)),
+        "/" => Ok(Object::Integer(left / right)),
+        "<" => Ok(Object::Boolean(left < right)),
+        ">" => Ok(Object::Boolean(left > right)),
+        "==" => Ok(Object::Boolean(left == right)),
+        "!=" => Ok(Object::Boolean(left != right)),
+        _ => Err(EvalError::Err(format!(
+            "invalid integer infix operator: {:?}",
+            operator
+        ))),
+    }
 }
 
 #[cfg(test)]
@@ -138,7 +139,18 @@ mod tests {
 
     #[test]
     fn test_eval_boolean_expression() {
-        let tests: Vec<(&str, bool)> = vec![("true", true), ("false", false)];
+        let tests: Vec<(&str, bool)> = vec![
+            ("true", true),
+            ("false", false),
+            ("1 < 2", true),
+            ("1 > 2", false),
+            ("1 < 1", false),
+            ("1 > 1", false),
+            ("1 == 1", true),
+            ("1 != 1", false),
+            ("1 == 2", false),
+            ("1 != 2", true),
+        ];
         for t in tests {
             let evaluated = test_eval(t.0);
             test_boolean_object(evaluated, t.1);
