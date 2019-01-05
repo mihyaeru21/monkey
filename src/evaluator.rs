@@ -1,3 +1,4 @@
+use crate::ast::BlockStatement;
 use crate::ast::{Expression, IfExpression, Program, Statement};
 use crate::object::Object;
 use std::result;
@@ -10,25 +11,24 @@ pub enum EvalError {
 pub type Result<T> = result::Result<T, EvalError>;
 
 pub fn eval(program: &Program) -> Result<Object> {
-    eval_statements(&program.statements)
-}
-
-fn eval_statements(statements: &Vec<Statement>) -> Result<Object> {
     let mut obj = Object::Null;
-    for statement in statements {
+
+    for statement in &program.statements {
         obj = eval_statement(statement)?;
+
         match obj {
             Object::ReturnValue(o) => return Ok(*o),
             _ => {}
         }
     }
+
     Ok(obj)
 }
 
 fn eval_statement(statement: &Statement) -> Result<Object> {
     match statement {
         Statement::Expression(s) => eval_expression(&s.expression),
-        Statement::Block(s) => eval_statements(&s.statements),
+        Statement::Block(s) => eval_block_statement(&s),
         Statement::Return(s) => {
             let res = eval_expression(&s.return_value)?;
             Ok(Object::ReturnValue(Box::new(res)))
@@ -38,6 +38,21 @@ fn eval_statement(statement: &Statement) -> Result<Object> {
             statement
         ))),
     }
+}
+
+fn eval_block_statement(block: &BlockStatement) -> Result<Object> {
+    let mut obj = Object::Null;
+
+    for statement in &block.statements {
+        obj = eval_statement(statement)?;
+
+        match obj {
+            Object::ReturnValue(_) => return Ok(obj),
+            _ => {}
+        }
+    }
+
+    Ok(obj)
 }
 
 fn eval_expression(expression: &Expression) -> Result<Object> {
@@ -251,6 +266,17 @@ mod tests {
             ("return 10; 9;", 10),
             ("return 2 * 5; 9;", 10),
             ("9; return 2 * 5; 9;", 10),
+            (
+                r#"
+                    if (10 > 1) {
+                      if (10 > 1) {
+                        return 10;
+                      }
+                      return 1;
+                    }
+                "#,
+                10,
+            ),
         ];
         for t in tests {
             let evaluated = test_eval(t.0);
