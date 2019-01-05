@@ -14,17 +14,25 @@ pub fn eval(program: &Program) -> Result<Object> {
 }
 
 fn eval_statements(statements: &Vec<Statement>) -> Result<Object> {
-    let mut obj: Result<Object> = Err(EvalError::Err("todo".into())); // TODO: 最初はNULLが入りそう
+    let mut obj = Object::Null;
     for statement in statements {
-        obj = Ok(eval_statement(statement)?);
+        obj = eval_statement(statement)?;
+        match obj {
+            Object::ReturnValue(o) => return Ok(*o),
+            _ => {}
+        }
     }
-    obj
+    Ok(obj)
 }
 
 fn eval_statement(statement: &Statement) -> Result<Object> {
     match statement {
         Statement::Expression(s) => eval_expression(&s.expression),
         Statement::Block(s) => eval_statements(&s.statements),
+        Statement::Return(s) => {
+            let res = eval_expression(&s.return_value)?;
+            Ok(Object::ReturnValue(Box::new(res)))
+        }
         _ => Err(EvalError::Err(format!(
             "unexpected statement: {:?}",
             statement
@@ -233,6 +241,20 @@ mod tests {
         for t in null_tests {
             let evaluated = test_eval(t);
             test_null_object(&evaluated);
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let tests: Vec<(&str, i64)> = vec![
+            ("return 10;", 10),
+            ("return 10; 9;", 10),
+            ("return 2 * 5; 9;", 10),
+            ("9; return 2 * 5; 9;", 10),
+        ];
+        for t in tests {
+            let evaluated = test_eval(t.0);
+            test_integer_object(&evaluated, t.1);
         }
     }
 
