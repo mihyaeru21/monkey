@@ -1,5 +1,5 @@
 use crate::lexer::Lexer;
-use crate::token::TokenType;
+use crate::parser::Parser;
 use std::io::{self, BufRead, Write};
 
 const PROMPT: &'static str = ">> ";
@@ -15,14 +15,34 @@ pub fn start<R: BufRead, W: Write>(mut input: R, mut output: W) -> io::Result<()
             return Ok(());
         }
 
-        let mut lexer = Lexer::new(&buf);
+        let mut parser = Parser::new(Lexer::new(&buf));
 
-        loop {
-            let token = lexer.next_token();
-            if token.token_type == TokenType::EOF {
-                break;
-            }
-            writeln!(output, "{:?}", token)?;
+        match parser.parse_program() {
+            Ok(program) => writeln!(output, "{}", program)?,
+            Err(_) => print_parser_errors(&mut output, parser.get_errors())?,
         }
     }
+}
+
+const MONKEY_FACE: &'static str = r#"           __,__
+  .--.  .-"     "-.  .--.
+ / .. \/  .-. .-.  \/ .. \
+| |  '|  /   Y   \  |'  | |
+| \   \  \ 0 | 0 /  /   / |
+ \ '- ,\.-"""""""-./, -' /
+  ''-' /_   ^ ^   _\ '-''
+      |  \._   _./  |
+      \   \ '~' /   /
+       '._ '-=-' _.'
+          '-----'
+"#;
+
+fn print_parser_errors<W: Write>(output: &mut W, errors: &Vec<String>) -> io::Result<()> {
+    write!(output, "{}", MONKEY_FACE)?;
+    writeln!(output, "Woops! We ran into some monkey business here!")?;
+    writeln!(output, " parser errors:")?;
+    for error in errors {
+        writeln!(output, "\t{}", error)?;
+    }
+    Ok(())
 }

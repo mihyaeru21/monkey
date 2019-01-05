@@ -73,7 +73,11 @@ impl Parser {
             self.next_token();
         }
 
-        Ok(program)
+        if self.errors.len() == 0 {
+            Ok(program)
+        } else {
+            Err(ParseError::Err("failed to parse.".into()))
+        }
     }
 
     pub fn get_errors(&self) -> &Vec<String> {
