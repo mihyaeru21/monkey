@@ -35,11 +35,32 @@ fn eval_expression(expression: &Expression) -> Result<Object> {
     match expression {
         Expression::IntegerLiteral(i) => Ok(Object::Integer(i.value)),
         Expression::BooleanLiteral(b) => Ok(Object::Boolean(b.value)),
+        Expression::Prefix(e) => eval_prefix_expression(&e.operator, &eval_expression(&e.right)?),
         _ => Err(EvalError::Err(format!(
             "unexpected expression: {:?}",
             expression
         ))),
     }
+}
+
+fn eval_prefix_expression(operator: &str, right: &Object) -> Result<Object> {
+    match operator {
+        "!" => eval_bang_operator(right),
+        _ => Err(EvalError::Err(format!(
+            "invalid prefix operator: {:?}",
+            operator
+        ))),
+    }
+}
+
+fn eval_bang_operator(right: &Object) -> Result<Object> {
+    let res = match right {
+        Object::Boolean(true) => false,
+        Object::Boolean(false) => true,
+        Object::Null => true,
+        _ => false,
+    };
+    Ok(Object::Boolean(res))
 }
 
 #[cfg(test)]
@@ -60,6 +81,22 @@ mod tests {
     #[test]
     fn test_eval_boolean_expression() {
         let tests: Vec<(&str, bool)> = vec![("true", true), ("false", false)];
+        for t in tests {
+            let evaluated = test_eval(t.0);
+            test_boolean_object(evaluated, t.1);
+        }
+    }
+
+    #[test]
+    fn test_bang_operator() {
+        let tests: Vec<(&str, bool)> = vec![
+            ("!true", false),
+            ("!false", true),
+            ("!5", false),
+            ("!!true", true),
+            ("!!false", false),
+            ("!!5", true),
+        ];
         for t in tests {
             let evaluated = test_eval(t.0);
             test_boolean_object(evaluated, t.1);
