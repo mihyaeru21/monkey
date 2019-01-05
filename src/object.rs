@@ -15,4 +15,13 @@ impl Object {
             Object::ReturnValue(o) => o.inspect(),
         }
     }
+
+    pub fn object_type(&self) -> &str {
+        match self {
+            Object::Integer(_) => "INTEGER",
+            Object::Boolean(_) => "BOOLEAN",
+            Object::Null => "NULL",
+            Object::ReturnValue(_) => "RETURN_VALUE",
+        }
+    }
 }

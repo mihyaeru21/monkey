@@ -1,11 +1,24 @@
 use crate::ast::BlockStatement;
 use crate::ast::{Expression, IfExpression, Program, Statement};
 use crate::object::Object;
+use std::fmt;
 use std::result;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum EvalError {
-    Err(String),
+    TypeMismatch(String),
+    UnknownOperator(String),
+    NotImplemented(String),
+}
+
+impl fmt::Display for EvalError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            EvalError::TypeMismatch(s) => write!(f, "type mismatch: {}", s),
+            EvalError::UnknownOperator(s) => write!(f, "unknown operator: {}", s),
+            EvalError::NotImplemented(s) => write!(f, "not implemented: {}", s),
+        }
+    }
 }
 
 pub type Result<T> = result::Result<T, EvalError>;
@@ -33,10 +46,7 @@ fn eval_statement(statement: &Statement) -> Result<Object> {
             let res = eval_expression(&s.return_value)?;
             Ok(Object::ReturnValue(Box::new(res)))
         }
-        _ => Err(EvalError::Err(format!(
-            "unexpected statement: {:?}",
-            statement
-        ))),
+        _ => Err(EvalError::NotImplemented(format!("{:?}", statement))),
     }
 }
 
@@ -66,10 +76,7 @@ fn eval_expression(expression: &Expression) -> Result<Object> {
             &eval_expression(&e.right)?,
         ),
         Expression::If(e) => eval_if_expression(e),
-        _ => Err(EvalError::Err(format!(
-            "unexpected expression: {:?}",
-            expression
-        ))),
+        _ => Err(EvalError::NotImplemented(format!("{:?}", expression))),
     }
 }
 
@@ -77,9 +84,10 @@ fn eval_prefix_expression(operator: &str, right: &Object) -> Result<Object> {
     match operator {
         "!" => eval_bang_operator(right),
         "-" => eval_minus_operator(right),
-        _ => Err(EvalError::Err(format!(
-            "invalid prefix operator: {:?}",
-            operator
+        _ => Err(EvalError::UnknownOperator(format!(
+            "{}{}",
+            operator,
+            right.object_type()
         ))),
     }
 }
@@ -97,9 +105,9 @@ fn eval_bang_operator(right: &Object) -> Result<Object> {
 fn eval_minus_operator(right: &Object) -> Result<Object> {
     match right {
         Object::Integer(i) => Ok(Object::Integer(-(*i))),
-        _ => Err(EvalError::Err(format!(
-            "integer object is expected: {:?}",
-            right
+        _ => Err(EvalError::UnknownOperator(format!(
+            "-{}",
+            right.object_type()
         ))),
     }
 }
@@ -108,9 +116,11 @@ fn eval_infix_expression(left: &Object, operator: &str, right: &Object) -> Resul
     match (left, right) {
         (Object::Integer(l), Object::Integer(r)) => eval_integer_infix_expression(*l, operator, *r),
         (Object::Boolean(l), Object::Boolean(r)) => eval_boolean_infix_expression(*l, operator, *r),
-        _ => Err(EvalError::Err(format!(
-            "invalid operand. left: {:?}, right: {:?}",
-            left, right
+        _ => Err(EvalError::TypeMismatch(format!(
+            "{} {} {}",
+            left.object_type(),
+            operator,
+            right.object_type()
         ))),
     }
 }
@@ -125,8 +135,8 @@ fn eval_integer_infix_expression(left: i64, operator: &str, right: i64) -> Resul
         ">" => Ok(Object::Boolean(left > right)),
         "==" => Ok(Object::Boolean(left == right)),
         "!=" => Ok(Object::Boolean(left != right)),
-        _ => Err(EvalError::Err(format!(
-            "invalid integer infix operator: {:?}",
+        _ => Err(EvalError::UnknownOperator(format!(
+            "INTEGER {} INTEGER",
             operator
         ))),
     }
@@ -136,8 +146,8 @@ fn eval_boolean_infix_expression(left: bool, operator: &str, right: bool) -> Res
     match operator {
         "==" => Ok(Object::Boolean(left == right)),
         "!=" => Ok(Object::Boolean(left != right)),
-        _ => Err(EvalError::Err(format!(
-            "invalid boolean infix operator: {:?}",
+        _ => Err(EvalError::UnknownOperator(format!(
+            "BOOLEAN {} BOOLEAN",
             operator
         ))),
     }
@@ -188,7 +198,7 @@ mod tests {
             ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
         ];
         for t in tests {
-            let evaluated = test_eval(t.0);
+            let evaluated = test_eval(t.0).unwrap();
             test_integer_object(&evaluated, t.1);
         }
     }
@@ -217,7 +227,7 @@ mod tests {
             ("(1 > 2) == false", true),
         ];
         for t in tests {
-            let evaluated = test_eval(t.0);
+            let evaluated = test_eval(t.0).unwrap();
             test_boolean_object(&evaluated, t.1);
         }
     }
@@ -233,7 +243,7 @@ mod tests {
             ("!!5", true),
         ];
         for t in tests {
-            let evaluated = test_eval(t.0);
+            let evaluated = test_eval(t.0).unwrap();
             test_boolean_object(&evaluated, t.1);
         }
     }
@@ -248,13 +258,13 @@ mod tests {
             ("if (1 < 2) { 10 } else { 20 }", 10),
         ];
         for t in int_tests {
-            let evaluated = test_eval(t.0);
+            let evaluated = test_eval(t.0).unwrap();
             test_integer_object(&evaluated, t.1);
         }
 
         let null_tests: Vec<&str> = vec!["if (false) { 10 }", "if (1 > 2) { 10 }"];
         for t in null_tests {
-            let evaluated = test_eval(t);
+            let evaluated = test_eval(t).unwrap();
             test_null_object(&evaluated);
         }
     }
@@ -279,15 +289,57 @@ mod tests {
             ),
         ];
         for t in tests {
-            let evaluated = test_eval(t.0);
+            let evaluated = test_eval(t.0).unwrap();
             test_integer_object(&evaluated, t.1);
         }
     }
 
-    fn test_eval(input: &str) -> Object {
+    #[test]
+    fn test_error_handling() {
+        let tests: Vec<(&str, EvalError)> = vec![
+            (
+                "5 + true",
+                EvalError::TypeMismatch("INTEGER + BOOLEAN".into()),
+            ),
+            (
+                "5 + true; 5;",
+                EvalError::TypeMismatch("INTEGER + BOOLEAN".into()),
+            ),
+            ("-true", EvalError::UnknownOperator("-BOOLEAN".into())),
+            (
+                "true + false;",
+                EvalError::UnknownOperator("BOOLEAN + BOOLEAN".into()),
+            ),
+            (
+                "5; true + false; 5;",
+                EvalError::UnknownOperator("BOOLEAN + BOOLEAN".into()),
+            ),
+            (
+                "if (10 > 1) { true + false; }",
+                EvalError::UnknownOperator("BOOLEAN + BOOLEAN".into()),
+            ),
+            (
+                r#"
+                    if (10 > 1) {
+                      if (10 > 1) {
+                        return true + false;
+                      }
+                      return 1;
+                    }
+                "#,
+                EvalError::UnknownOperator("BOOLEAN + BOOLEAN".into()),
+            ),
+        ];
+        for t in tests {
+            let evaluated = test_eval(t.0).unwrap_err();
+            assert_eq!(evaluated, t.1);
+        }
+    }
+
+    fn test_eval(input: &str) -> Result<Object> {
         let mut parser = Parser::new(Lexer::new(input));
         let program = parser.parse_program().unwrap();
-        eval(&program).unwrap()
+        eval(&program)
     }
 
     fn test_integer_object(object: &Object, expected: i64) {
