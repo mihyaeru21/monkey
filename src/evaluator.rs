@@ -36,6 +36,11 @@ fn eval_expression(expression: &Expression) -> Result<Object> {
         Expression::IntegerLiteral(i) => Ok(Object::Integer(i.value)),
         Expression::BooleanLiteral(b) => Ok(Object::Boolean(b.value)),
         Expression::Prefix(e) => eval_prefix_expression(&e.operator, &eval_expression(&e.right)?),
+        Expression::Infix(e) => eval_infix_expression(
+            &eval_expression(&e.left)?,
+            &e.operator,
+            &eval_expression(&e.right)?,
+        ),
         _ => Err(EvalError::Err(format!(
             "unexpected expression: {:?}",
             expression
@@ -74,6 +79,32 @@ fn eval_minus_operator(right: &Object) -> Result<Object> {
     }
 }
 
+fn eval_infix_expression(left: &Object, operator: &str, right: &Object) -> Result<Object> {
+    match (left, right) {
+        (Object::Integer(l), Object::Integer(r)) => eval_integer_infix_expression(*l, operator, *r),
+        _ => Err(EvalError::Err(format!(
+            "invalid operand. left: {:?}, right: {:?}",
+            left, right
+        ))),
+    }
+}
+
+fn eval_integer_infix_expression(left: i64, operator: &str, right: i64) -> Result<Object> {
+    let res = match operator {
+        "+" => left + right,
+        "-" => left - right,
+        "*" => left * right,
+        "/" => left / right,
+        _ => {
+            return Err(EvalError::Err(format!(
+                "invalid integer infix operator: {:?}",
+                operator
+            )));
+        }
+    };
+    Ok(Object::Integer(res))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -82,7 +113,23 @@ mod tests {
 
     #[test]
     fn test_eval_integer_expression() {
-        let tests: Vec<(&str, i64)> = vec![("5", 5), ("10", 10), ("-5", -5), ("-10", -10)];
+        let tests: Vec<(&str, i64)> = vec![
+            ("5", 5),
+            ("10", 10),
+            ("-5", -5),
+            ("-10", -10),
+            ("5 + 5 + 5 + 5 - 10", 10),
+            ("2 * 2 * 2 * 2 * 2", 32),
+            ("-50 + 100 + -50", 0),
+            ("5 * 2 + 10", 20),
+            ("5 + 2 * 10", 25),
+            ("20 + 2 * -10", 0),
+            ("50 / 2 * 2 + 10", 60),
+            ("2 * (5 + 10)", 30),
+            ("3 * 3 * 3 + 10", 37),
+            ("3 * (3 * 3) + 10", 37),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
+        ];
         for t in tests {
             let evaluated = test_eval(t.0);
             test_integer_object(evaluated, t.1);
