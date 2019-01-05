@@ -46,6 +46,7 @@ fn eval_expression(expression: &Expression) -> Result<Object> {
 fn eval_prefix_expression(operator: &str, right: &Object) -> Result<Object> {
     match operator {
         "!" => eval_bang_operator(right),
+        "-" => eval_minus_operator(right),
         _ => Err(EvalError::Err(format!(
             "invalid prefix operator: {:?}",
             operator
@@ -63,6 +64,16 @@ fn eval_bang_operator(right: &Object) -> Result<Object> {
     Ok(Object::Boolean(res))
 }
 
+fn eval_minus_operator(right: &Object) -> Result<Object> {
+    match right {
+        Object::Integer(i) => Ok(Object::Integer(-(*i))),
+        _ => Err(EvalError::Err(format!(
+            "integer object is expected: {:?}",
+            right
+        ))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -71,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_eval_integer_expression() {
-        let tests: Vec<(&str, i64)> = vec![("5", 5), ("10", 10)];
+        let tests: Vec<(&str, i64)> = vec![("5", 5), ("10", 10), ("-5", -5), ("-10", -10)];
         for t in tests {
             let evaluated = test_eval(t.0);
             test_integer_object(evaluated, t.1);
