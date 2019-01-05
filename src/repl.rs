@@ -1,3 +1,4 @@
+use crate::evaluator::eval;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use std::io::{self, BufRead, Write};
@@ -17,10 +18,18 @@ pub fn start<R: BufRead, W: Write>(mut input: R, mut output: W) -> io::Result<()
 
         let mut parser = Parser::new(Lexer::new(&buf));
 
-        match parser.parse_program() {
-            Ok(program) => writeln!(output, "{}", program)?,
-            Err(_) => print_parser_errors(&mut output, parser.get_errors())?,
-        }
+        let program = match parser.parse_program() {
+            Ok(program) => program,
+            Err(_) => {
+                print_parser_errors(&mut output, parser.get_errors())?;
+                continue;
+            }
+        };
+
+        match eval(&program) {
+            Ok(obj) => writeln!(output, "{}", obj.inspect())?,
+            Err(_) => {}
+        };
     }
 }
 
