@@ -34,6 +34,7 @@ fn eval_statement(statement: &Statement) -> Result<Object> {
 fn eval_expression(expression: &Expression) -> Result<Object> {
     match expression {
         Expression::IntegerLiteral(i) => Ok(Object::Integer(i.value)),
+        Expression::BooleanLiteral(b) => Ok(Object::Boolean(b.value)),
         _ => Err(EvalError::Err(format!(
             "unexpected expression: {:?}",
             expression
@@ -56,6 +57,15 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_eval_boolean_expression() {
+        let tests: Vec<(&str, bool)> = vec![("true", true), ("false", false)];
+        for t in tests {
+            let evaluated = test_eval(t.0);
+            test_boolean_object(evaluated, t.1);
+        }
+    }
+
     fn test_eval(input: &str) -> Object {
         let mut parser = Parser::new(Lexer::new(input));
         let program = parser.parse_program().unwrap();
@@ -68,5 +78,13 @@ mod tests {
             _ => panic!("object is not Integer. got: {:?}", object),
         };
         assert_eq!(int, expected);
+    }
+
+    fn test_boolean_object(object: Object, expected: bool) {
+        let boolean = match object {
+            Object::Boolean(b) => b,
+            _ => panic!("object is not Boolean. got: {:?}", object),
+        };
+        assert_eq!(boolean, expected);
     }
 }
