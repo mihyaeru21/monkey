@@ -12,6 +12,7 @@ use crate::ast::{
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
 use std::mem::swap;
+use std::rc::Rc;
 use std::result;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -334,7 +335,7 @@ impl Parser {
         Ok(FunctionLiteral {
             token,
             parameters,
-            body,
+            body: Rc::new(body),
         })
     }
 

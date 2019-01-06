@@ -175,11 +175,26 @@ fn test_error_handling() {
     }
 }
 
+#[test]
+fn test_function_object() {
+    let input = "fn(x) { x + 2; };";
+
+    let evaluated = test_eval(input).unwrap();
+    let func = match evaluated.as_ref() {
+        Object::Function(f) => f,
+        _ => panic!("object is not Function. got: {:?}", evaluated),
+    };
+
+    assert_eq!(func.parameters.len(), 1);
+    assert_eq!(format!("{}", func.parameters[0]), "x");
+    assert_eq!(format!("{}", func.body), "(x + 2)");
+}
+
 fn test_eval(input: &str) -> Result<Rc<Object>> {
     let mut parser = Parser::new(Lexer::new(input));
     let program = parser.parse_program().unwrap();
-    let mut env = Environment::new();
-    eval(&program, &mut env)
+    let env = Rc::new(RefCell::new(Environment::new()));
+    eval(&program, &env)
 }
 
 fn test_integer_object(object: &Object, expected: i64) {

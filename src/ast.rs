@@ -1,5 +1,6 @@
 use crate::token::Token;
 use std::fmt::{self, Display, Formatter};
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum Statement {
@@ -210,12 +211,12 @@ impl Display for IfExpression {
 pub struct FunctionLiteral {
     pub token: Token, // fn
     pub parameters: Vec<Identifier>,
-    pub body: BlockStatement,
+    pub body: Rc<BlockStatement>,
 }
 
 impl Display for FunctionLiteral {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let params: Vec<String> = self.parameters.iter().map(|p| format!("{}", p)).collect();
+        let params: Vec<String> = self.parameters.iter().map(|p| p.value.to_owned()).collect();
         write!(
             f,
             "{}({}) {}",

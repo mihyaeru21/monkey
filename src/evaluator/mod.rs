@@ -2,7 +2,9 @@
 mod tests;
 
 use crate::ast::{BlockStatement, Expression, Identifier, IfExpression, Program, Statement};
+use crate::object::FuncObject;
 use crate::object::{Environment, Object};
+use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 use std::result;
@@ -28,7 +30,7 @@ impl fmt::Display for EvalError {
 
 pub type Result<T> = result::Result<T, EvalError>;
 
-pub fn eval(program: &Program, env: &mut Environment) -> Result<Rc<Object>> {
+pub fn eval(program: &Program, env: &Rc<RefCell<Environment>>) -> Result<Rc<Object>> {
     let mut obj = Rc::new(Object::Null);
 
     for statement in &program.statements {
@@ -43,7 +45,7 @@ pub fn eval(program: &Program, env: &mut Environment) -> Result<Rc<Object>> {
     Ok(obj)
 }
 
-fn eval_statement(statement: &Statement, env: &mut Environment) -> Result<Rc<Object>> {
+fn eval_statement(statement: &Statement, env: &Rc<RefCell<Environment>>) -> Result<Rc<Object>> {
     match statement {
         Statement::Expression(s) => eval_expression(&s.expression, env),
         Statement::Block(s) => eval_block_statement(&s, env),
@@ -53,12 +55,15 @@ fn eval_statement(statement: &Statement, env: &mut Environment) -> Result<Rc<Obj
         }
         Statement::Let(s) => {
             let res = eval_expression(&s.value, env)?;
-            Ok(env.set(&s.name.value, res))
+            Ok(env.borrow_mut().set(&s.name.value, res))
         }
     }
 }
 
-fn eval_block_statement(block: &BlockStatement, env: &mut Environment) -> Result<Rc<Object>> {
+fn eval_block_statement(
+    block: &BlockStatement,
+    env: &Rc<RefCell<Environment>>,
+) -> Result<Rc<Object>> {
     let mut obj = Rc::new(Object::Null);
 
     for statement in &block.statements {
@@ -73,7 +78,7 @@ fn eval_block_statement(block: &BlockStatement, env: &mut Environment) -> Result
     Ok(obj)
 }
 
-fn eval_expression(expression: &Expression, env: &mut Environment) -> Result<Rc<Object>> {
+fn eval_expression(expression: &Expression, env: &Rc<RefCell<Environment>>) -> Result<Rc<Object>> {
     match expression {
         Expression::IntegerLiteral(i) => Ok(Rc::new(Object::Integer(i.value))),
         Expression::BooleanLiteral(b) => Ok(Rc::new(Object::Boolean(b.value))),
@@ -87,6 +92,11 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> Result<Rc<
         ),
         Expression::If(e) => eval_if_expression(e, env),
         Expression::Identifier(e) => eval_identifier(e, env),
+        Expression::Function(e) => Ok(Rc::new(Object::Function(FuncObject {
+            parameters: e.parameters.clone(),
+            body: e.body.clone(),
+            env: env.clone(),
+        }))),
         _ => Err(EvalError::NotImplemented(format!("{:?}", expression))),
     }
 }
@@ -174,7 +184,7 @@ fn eval_boolean_infix_expression(left: bool, operator: &str, right: bool) -> Res
     Ok(Rc::new(res))
 }
 
-fn eval_if_expression(if_exp: &IfExpression, env: &mut Environment) -> Result<Rc<Object>> {
+fn eval_if_expression(if_exp: &IfExpression, env: &Rc<RefCell<Environment>>) -> Result<Rc<Object>> {
     let condition = eval_expression(&if_exp.condition, env)?;
 
     if is_truthy(&condition) {
@@ -186,8 +196,8 @@ fn eval_if_expression(if_exp: &IfExpression, env: &mut Environment) -> Result<Rc
     }
 }
 
-fn eval_identifier(identifier: &Identifier, env: &Environment) -> Result<Rc<Object>> {
-    match env.get(&identifier.value) {
+fn eval_identifier(identifier: &Identifier, env: &Rc<RefCell<Environment>>) -> Result<Rc<Object>> {
+    match env.borrow().get(&identifier.value) {
         Some(o) => Ok(o),
         _ => Err(EvalError::IdentifierNotFound(identifier.value.clone())),
     }
