@@ -1,9 +1,14 @@
+mod environment;
+
+pub use self::environment::Environment;
+use std::rc::Rc;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum Object {
     Integer(i64),
     Boolean(bool),
     Null,
-    ReturnValue(Box<Object>),
+    ReturnValue(Rc<Object>),
 }
 
 impl Object {

@@ -1,11 +1,14 @@
 use crate::evaluator::eval;
 use crate::lexer::Lexer;
+use crate::object::Environment;
 use crate::parser::Parser;
 use std::io::{self, BufRead, Write};
 
 const PROMPT: &'static str = ">> ";
 
 pub fn start<R: BufRead, W: Write>(mut input: R, mut output: W) -> io::Result<()> {
+    let mut env = Environment::new();
+
     loop {
         write!(output, "{}", PROMPT)?;
         output.flush()?;
@@ -26,7 +29,7 @@ pub fn start<R: BufRead, W: Write>(mut input: R, mut output: W) -> io::Result<()
             }
         };
 
-        match eval(&program) {
+        match eval(&program, &mut env) {
             Ok(obj) => writeln!(output, "{}", obj.inspect())?,
             Err(e) => writeln!(output, "{}", e)?,
         };

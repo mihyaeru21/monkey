@@ -120,6 +120,20 @@ fn test_return_statements() {
 }
 
 #[test]
+fn test_let_statement() {
+    let tests: Vec<(&str, i64)> = vec![
+        ("let a = 5; a;", 5),
+        ("let a = 5 * 5; a;", 25),
+        ("let a = 5; let b = a; b;", 5),
+        ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+    ];
+    for t in tests {
+        let evaluated = test_eval(t.0).unwrap();
+        test_integer_object(&evaluated, t.1);
+    }
+}
+
+#[test]
 fn test_error_handling() {
     let tests: Vec<(&str, EvalError)> = vec![
         (
@@ -154,6 +168,7 @@ fn test_error_handling() {
             "#,
             EvalError::UnknownOperator("BOOLEAN + BOOLEAN".into()),
         ),
+        ("foobar", EvalError::IdentifierNotFound("foobar".into())),
     ];
     for t in tests {
         let evaluated = test_eval(t.0).unwrap_err();
@@ -161,10 +176,11 @@ fn test_error_handling() {
     }
 }
 
-fn test_eval(input: &str) -> Result<Object> {
+fn test_eval(input: &str) -> Result<Rc<Object>> {
     let mut parser = Parser::new(Lexer::new(input));
     let program = parser.parse_program().unwrap();
-    eval(&program)
+    let mut env = Environment::new();
+    eval(&program, &mut env)
 }
 
 fn test_integer_object(object: &Object, expected: i64) {
