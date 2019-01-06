@@ -14,7 +14,7 @@ pub enum EvalError {
     TypeMismatch(String),
     UnknownOperator(String),
     IdentifierNotFound(String),
-    NotImplemented(String),
+    NotAFunction(String),
 }
 
 impl fmt::Display for EvalError {
@@ -23,14 +23,16 @@ impl fmt::Display for EvalError {
             EvalError::TypeMismatch(s) => write!(f, "type mismatch: {}", s),
             EvalError::UnknownOperator(s) => write!(f, "unknown operator: {}", s),
             EvalError::IdentifierNotFound(s) => write!(f, "identifier not found: {}", s),
-            EvalError::NotImplemented(s) => write!(f, "not implemented: {}", s),
+            EvalError::NotAFunction(s) => write!(f, "not a function: {}", s),
         }
     }
 }
 
 pub type Result<T> = result::Result<T, EvalError>;
 
-pub fn eval(program: &Program, env: &Rc<RefCell<Environment>>) -> Result<Rc<Object>> {
+type Env = Rc<RefCell<Environment>>;
+
+pub fn eval(program: &Program, env: &Env) -> Result<Rc<Object>> {
     let mut obj = Rc::new(Object::Null);
 
     for statement in &program.statements {
@@ -45,7 +47,7 @@ pub fn eval(program: &Program, env: &Rc<RefCell<Environment>>) -> Result<Rc<Obje
     Ok(obj)
 }
 
-fn eval_statement(statement: &Statement, env: &Rc<RefCell<Environment>>) -> Result<Rc<Object>> {
+fn eval_statement(statement: &Statement, env: &Env) -> Result<Rc<Object>> {
     match statement {
         Statement::Expression(s) => eval_expression(&s.expression, env),
         Statement::Block(s) => eval_block_statement(&s, env),
@@ -60,10 +62,7 @@ fn eval_statement(statement: &Statement, env: &Rc<RefCell<Environment>>) -> Resu
     }
 }
 
-fn eval_block_statement(
-    block: &BlockStatement,
-    env: &Rc<RefCell<Environment>>,
-) -> Result<Rc<Object>> {
+fn eval_block_statement(block: &BlockStatement, env: &Env) -> Result<Rc<Object>> {
     let mut obj = Rc::new(Object::Null);
 
     for statement in &block.statements {
@@ -78,7 +77,7 @@ fn eval_block_statement(
     Ok(obj)
 }
 
-fn eval_expression(expression: &Expression, env: &Rc<RefCell<Environment>>) -> Result<Rc<Object>> {
+fn eval_expression(expression: &Expression, env: &Env) -> Result<Rc<Object>> {
     match expression {
         Expression::IntegerLiteral(i) => Ok(Rc::new(Object::Integer(i.value))),
         Expression::BooleanLiteral(b) => Ok(Rc::new(Object::Boolean(b.value))),
@@ -97,7 +96,14 @@ fn eval_expression(expression: &Expression, env: &Rc<RefCell<Environment>>) -> R
             body: e.body.clone(),
             env: env.clone(),
         }))),
-        _ => Err(EvalError::NotImplemented(format!("{:?}", expression))),
+        Expression::Call(e) => {
+            let func = eval_expression(&e.function, env)?;
+            let mut args = Vec::new();
+            for arg in &e.arguments {
+                args.push(eval_expression(arg, env)?);
+            }
+            apply_function(&func, &args)
+        }
     }
 }
 
@@ -184,7 +190,7 @@ fn eval_boolean_infix_expression(left: bool, operator: &str, right: bool) -> Res
     Ok(Rc::new(res))
 }
 
-fn eval_if_expression(if_exp: &IfExpression, env: &Rc<RefCell<Environment>>) -> Result<Rc<Object>> {
+fn eval_if_expression(if_exp: &IfExpression, env: &Env) -> Result<Rc<Object>> {
     let condition = eval_expression(&if_exp.condition, env)?;
 
     if is_truthy(&condition) {
@@ -196,10 +202,31 @@ fn eval_if_expression(if_exp: &IfExpression, env: &Rc<RefCell<Environment>>) -> 
     }
 }
 
-fn eval_identifier(identifier: &Identifier, env: &Rc<RefCell<Environment>>) -> Result<Rc<Object>> {
+fn eval_identifier(identifier: &Identifier, env: &Env) -> Result<Rc<Object>> {
     match env.borrow().get(&identifier.value) {
         Some(o) => Ok(o),
         _ => Err(EvalError::IdentifierNotFound(identifier.value.clone())),
+    }
+}
+
+fn apply_function(func: &Object, args: &Vec<Rc<Object>>) -> Result<Rc<Object>> {
+    let function = match func {
+        Object::Function(f) => f,
+        _ => {
+            return Err(EvalError::NotAFunction(func.object_type().to_owned()));
+        }
+    };
+
+    let mut extended_env = Environment::new_enclosed(&function.env);
+    for (param, arg) in function.parameters.iter().zip(args) {
+        extended_env.set(&param.value, arg.clone());
+    }
+
+    let res = eval_block_statement(&function.body, &Rc::new(RefCell::new(extended_env)))?;
+
+    match res.as_ref() {
+        Object::ReturnValue(o) => Ok(o.clone()),
+        _ => Ok(res),
     }
 }
 

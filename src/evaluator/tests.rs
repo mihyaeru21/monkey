@@ -190,6 +190,22 @@ fn test_function_object() {
     assert_eq!(format!("{}", func.body), "(x + 2)");
 }
 
+#[test]
+fn test_function_application() {
+    let tests: Vec<(&str, i64)> = vec![
+        ("let identity = fn(x) { x; }; identity(5);", 5),
+        ("let identity = fn(x) { return x; }; identity(5);", 5),
+        ("let double = fn(x) { x * 2; }; double(5);", 10),
+        ("let add = fn(x, y) { x + y; }; add(5, 5);", 10),
+        ("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
+        ("fn(x) { x; }(5);", 5),
+    ];
+    for t in tests {
+        let evaluated = test_eval(t.0).unwrap();
+        test_integer_object(&evaluated, t.1);
+    }
+}
+
 fn test_eval(input: &str) -> Result<Rc<Object>> {
     let mut parser = Parser::new(Lexer::new(input));
     let program = parser.parse_program().unwrap();
