@@ -50,6 +50,7 @@ impl Lexer {
             Some(')') => new_token(')', TokenType::RParen),
             Some('{') => new_token('{', TokenType::LBrace),
             Some('}') => new_token('}', TokenType::RBrace),
+            Some('"') => new_token(self.read_string(), TokenType::String),
             Some(c) => {
                 if is_letter(c) {
                     // return しとかないと read_char() が余分に呼び出されてしまう
@@ -95,6 +96,18 @@ impl Lexer {
         let position = self.position;
         while is_digit_opt(self.ch) {
             self.read_char();
+        }
+        self.input[position..self.position].iter().collect()
+    }
+
+    fn read_string(&mut self) -> String {
+        let position = self.position + 1;
+        loop {
+            self.read_char();
+            match self.ch {
+                Some('"') | None => break,
+                _ => {}
+            }
         }
         self.input[position..self.position].iter().collect()
     }
@@ -177,6 +190,9 @@ fn test_next_token() {
 
         10 == 10;
         10 != 9;
+
+        "foobar"
+        "foo bar"
     "#;
 
     let tests: Vec<(TokenType, &str)> = vec![
@@ -253,6 +269,8 @@ fn test_next_token() {
         (TokenType::NotEq, "!="),
         (TokenType::Int, "9"),
         (TokenType::Semicolon, ";"),
+        (TokenType::String, "foobar"),
+        (TokenType::String, "foo bar"),
         (TokenType::EOF, ""),
     ];
 

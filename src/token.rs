@@ -8,6 +8,7 @@ pub enum TokenType {
     // 識別子 + リテラル
     Ident,
     Int,
+    String,
 
     // 演算子
     Assign,   // =
@@ -64,6 +65,7 @@ impl fmt::Display for TokenType {
             TokenType::EOF => "EOF",
             TokenType::Ident => "Identifier",
             TokenType::Int => "Integer literal",
+            TokenType::String => "String literal",
             TokenType::Assign => "=",
             TokenType::Plus => "+",
             TokenType::Minus => "-",
