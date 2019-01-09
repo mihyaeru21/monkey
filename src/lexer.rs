@@ -24,32 +24,32 @@ impl Lexer {
         self.skip_whitespace();
 
         let token = match self.ch {
-            Some(c @ '=') => match self.peek_char() {
+            Some('=') => match self.peek_char() {
                 Some('=') => {
                     self.read_char();
                     new_token("==", TokenType::Eq)
                 }
-                _ => new_token(c, TokenType::Assign),
+                _ => new_token('=', TokenType::Assign),
             },
-            Some(c @ '+') => new_token(c, TokenType::Plus),
-            Some(c @ '-') => new_token(c, TokenType::Minus),
-            Some(c @ '!') => match self.peek_char() {
+            Some('+') => new_token('+', TokenType::Plus),
+            Some('-') => new_token('-', TokenType::Minus),
+            Some('!') => match self.peek_char() {
                 Some('=') => {
                     self.read_char();
                     new_token("!=", TokenType::NotEq)
                 }
-                _ => new_token(c, TokenType::Bang),
+                _ => new_token('!', TokenType::Bang),
             },
-            Some(c @ '/') => new_token(c, TokenType::Slash),
-            Some(c @ '*') => new_token(c, TokenType::Asterisk),
-            Some(c @ '<') => new_token(c, TokenType::Lt),
-            Some(c @ '>') => new_token(c, TokenType::Gt),
-            Some(c @ ';') => new_token(c, TokenType::Semicolon),
-            Some(c @ ',') => new_token(c, TokenType::Comma),
-            Some(c @ '(') => new_token(c, TokenType::LParen),
-            Some(c @ ')') => new_token(c, TokenType::RParen),
-            Some(c @ '{') => new_token(c, TokenType::LBrace),
-            Some(c @ '}') => new_token(c, TokenType::RBrace),
+            Some('/') => new_token('/', TokenType::Slash),
+            Some('*') => new_token('*', TokenType::Asterisk),
+            Some('<') => new_token('<', TokenType::Lt),
+            Some('>') => new_token('>', TokenType::Gt),
+            Some(';') => new_token(';', TokenType::Semicolon),
+            Some(',') => new_token(',', TokenType::Comma),
+            Some('(') => new_token('(', TokenType::LParen),
+            Some(')') => new_token(')', TokenType::RParen),
+            Some('{') => new_token('{', TokenType::LBrace),
+            Some('}') => new_token('}', TokenType::RBrace),
             Some(c) => {
                 if is_letter(c) {
                     // return しとかないと read_char() が余分に呼び出されてしまう
