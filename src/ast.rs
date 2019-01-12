@@ -25,6 +25,7 @@ impl Display for Statement {
 pub enum Expression {
     Identifier(Identifier),
     IntegerLiteral(IntegerLiteral),
+    StringLiteral(StringLiteral),
     BooleanLiteral(Boolean),
     Prefix(PrefixExpression),
     Infix(InfixExpression),
@@ -38,6 +39,7 @@ impl Display for Expression {
         match self {
             Expression::Identifier(e) => Display::fmt(e, f),
             Expression::IntegerLiteral(e) => Display::fmt(e, f),
+            Expression::StringLiteral(e) => Display::fmt(e, f),
             Expression::BooleanLiteral(e) => Display::fmt(e, f),
             Expression::Prefix(e) => Display::fmt(e, f),
             Expression::Infix(e) => Display::fmt(e, f),
@@ -145,6 +147,18 @@ pub struct IntegerLiteral {
 }
 
 impl Display for IntegerLiteral {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(&self.value, f)
+    }
+}
+
+#[derive(Debug)]
+pub struct StringLiteral {
+    pub token: Token,
+    pub value: String,
+}
+
+impl Display for StringLiteral {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Display::fmt(&self.value, f)
     }

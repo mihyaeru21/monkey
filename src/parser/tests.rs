@@ -75,6 +75,28 @@ fn test_integer_literal_expression() {
 }
 
 #[test]
+fn test_string_literal_expression() {
+    let input = r#""hello world";"#;
+
+    let mut parser = Parser::new(Lexer::new(input));
+    let program = parser.parse_program().unwrap();
+    check_parse_errors(&parser);
+
+    assert_eq!(program.statements.len(), 1);
+
+    let statement = match &program.statements[0] {
+        Statement::Expression(s) => s,
+        _ => panic!("invalid variant: {:?}", program.statements[0]),
+    };
+
+    let literal = match &statement.expression {
+        Expression::StringLiteral(s) => s,
+        _ => panic!("invalid variant: {:?}", &statement.expression),
+    };
+    assert_eq!(literal.value, "hello world");
+}
+
+#[test]
 fn test_prefix_expressions() {
     fn test(input: &str, op: &str, right: &Any) {
         let mut parser = Parser::new(Lexer::new(input));

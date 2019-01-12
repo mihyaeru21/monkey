@@ -1,13 +1,10 @@
 #[cfg(test)]
 mod tests;
 
-use crate::ast::BlockStatement;
-use crate::ast::CallExpression;
-use crate::ast::FunctionLiteral;
-use crate::ast::IfExpression;
 use crate::ast::{
-    Boolean, Expression, ExpressionStatement, Identifier, InfixExpression, IntegerLiteral,
-    LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
+    BlockStatement, Boolean, CallExpression, Expression, ExpressionStatement, FunctionLiteral,
+    Identifier, IfExpression, InfixExpression, IntegerLiteral, LetStatement, PrefixExpression,
+    Program, ReturnStatement, Statement, StringLiteral,
 };
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
@@ -174,6 +171,7 @@ impl Parser {
         let mut left_expression: Expression = match self.current_token.token_type {
             TokenType::Ident => Expression::Identifier(self.parse_identifier()),
             TokenType::Int => Expression::IntegerLiteral(self.parse_integer_literal()?),
+            TokenType::String => Expression::StringLiteral(self.parse_string_literal()?),
             TokenType::Bang | TokenType::Minus => {
                 Expression::Prefix(self.parse_prefix_expression()?)
             }
@@ -229,6 +227,12 @@ impl Parser {
         };
 
         Ok(IntegerLiteral { token, value })
+    }
+
+    fn parse_string_literal(&mut self) -> Result<StringLiteral> {
+        let token = self.current_token.clone();
+        let value = token.literal.clone();
+        Ok(StringLiteral { token, value })
     }
 
     fn parse_prefix_expression(&mut self) -> Result<PrefixExpression> {

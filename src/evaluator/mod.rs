@@ -104,6 +104,7 @@ fn eval_expression(expression: &Expression, env: &Env) -> Result<Rc<Object>> {
             }
             apply_function(&func, &args)
         }
+        _ => Err(EvalError::UnknownOperator("TODO".into())),
     }
 }
 
